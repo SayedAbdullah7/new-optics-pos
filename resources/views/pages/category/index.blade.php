@@ -1,0 +1,9 @@
+<x-app-layout>
+    <x-dynamic-table
+        table-id="categories_table"
+        :columns="$columns"
+        :filters="$filters"
+        :create-url="route('admin.categories.create')"
+        :show-checkbox="false"
+    />
+</x-app-layout>

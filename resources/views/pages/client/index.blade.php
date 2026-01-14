@@ -1,0 +1,9 @@
+<x-app-layout>
+    <x-dynamic-table
+        table-id="clients_table"
+        :columns="$columns"
+        :filters="$filters"
+        :create-url="route('admin.clients.create')"
+        :show-checkbox="false"
+    />
+</x-app-layout>

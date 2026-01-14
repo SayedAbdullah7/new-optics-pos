@@ -1,0 +1,9 @@
+<x-app-layout>
+    <x-dynamic-table
+        table-id="vendors_table"
+        :columns="$columns"
+        :filters="$filters"
+        :create-url="route('admin.vendors.create')"
+        :show-checkbox="false"
+    />
+</x-app-layout>

@@ -1,0 +1,9 @@
+<x-app-layout>
+    <x-dynamic-table
+        table-id="lens_brands_table"
+        :columns="$columns"
+        :filters="$filters"
+        :create-url="route('admin.lens-brands.create')"
+        :show-checkbox="false"
+    />
+</x-app-layout>

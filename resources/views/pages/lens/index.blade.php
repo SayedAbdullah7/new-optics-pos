@@ -1,0 +1,9 @@
+<x-app-layout>
+    <x-dynamic-table
+        table-id="lenses_table"
+        :columns="$columns"
+        :filters="$filters"
+        :create-url="route('admin.lenses.create')"
+        :show-checkbox="false"
+    />
+</x-app-layout>

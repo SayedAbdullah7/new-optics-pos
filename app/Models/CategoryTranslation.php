@@ -1,0 +1,29 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class CategoryTranslation extends Model
+{
+    public $timestamps = false;
+
+    /**
+     * The table associated with the model.
+     */
+    protected $table = 'category_translations';
+
+    protected $fillable = [
+        'category_id',
+        'locale',
+        'name',
+    ];
+
+    /**
+     * Get the category that owns the translation.
+     */
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
+}
