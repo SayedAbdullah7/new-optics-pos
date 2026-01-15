@@ -719,6 +719,9 @@
             updateSelect2Options($typeSelect, '<option value="">Type</option>');
             updateSelect2Options($categorySelect, '<option value="">Brand</option>');
 
+            // Reset price when range changes (or is cleared)
+            resetLensPrice($row);
+
             if (!range) {
                 return;
             }
@@ -758,6 +761,9 @@
 
             // Clear category
             updateSelect2Options($categorySelect, '<option value="">Brand</option>');
+
+            // Reset price when type changes (or is cleared)
+            resetLensPrice($row);
 
             // If type changed but no range selected, clear category only
             if (!type) {
@@ -803,6 +809,10 @@
                 const parts = value.split('&');
                 const price = parseFloat(parts[1]) || 0;
                 $row.find('.lens-price').val(price);
+            } else {
+                // Reset price if category is cleared
+                resetLensPrice($row);
+                return;
             }
             calculateLensRowTotal($row[0]);
             calculateTotals();
@@ -853,6 +863,13 @@
             const price = parseFloat($row.find('.lens-price').val()) || 0;
             const total = (quantity * price) / 2;
             $row.find('.lens-row-total').val(total.toFixed(2));
+        }
+
+        // Reset lens price and recalculate totals
+        function resetLensPrice($row) {
+            $row.find('.lens-price').val(0);
+            calculateLensRowTotal($row[0]);
+            calculateTotals();
         }
 
         // Calculate all totals
