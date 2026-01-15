@@ -309,9 +309,7 @@
             const $row = $(this).closest('.product-row');
             calculateRowTotal($row[0]);
             calculateTotals();
-        });
-
-        // Event delegation for remove product row
+        });        // Event delegation for remove product row
         $(document).on('click', '.remove-product-row', function(e) {
             e.preventDefault();
             e.stopPropagation();

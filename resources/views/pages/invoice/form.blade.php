@@ -311,49 +311,6 @@
                                     </td>
                                 </tr>
                             @endforeach
-                        @else
-                            <tr class="lens-row">
-                                <td>
-                                    <input type="text" name="lens_code[]" class="form-control form-control-solid lens-code-input"
-                                           value="" placeholder="Code">
-                                    <small class="lens-code-help form-text text-muted"></small>
-                                </td>
-                                <td>
-                                    <select name="lens_range[]" class="form-select form-select-solid lens-range-select">
-                                        <option value="">Range</option>
-                                        @foreach($ranges as $range)
-                                            <option value="{{ $range->id }}">{{ $range->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="lens_type[]" class="form-select form-select-solid lens-type-select">
-                                        <option value="">Type</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <select name="lens_category[]" class="form-select form-select-solid lens-category-select">
-                                        <option value="">Brand</option>
-                                    </select>
-                                </td>
-                                <td>
-                                    <input type="number" name="lens_quantity[]" class="form-control form-control-solid lens-quantity" value="2" min="2" step="2">
-                                </td>
-                                <td>
-                                    <input type="number" name="lens_price[]" class="form-control form-control-solid lens-price" value="0" step="0.01" min="0">
-                                </td>
-                                <td>
-                                    <input type="number" class="form-control form-control-solid lens-row-total" value="0" readonly>
-                                </td>
-                                <td>
-                                    <button type="button" class="btn btn-icon btn-light-danger btn-sm remove-lens-row">
-                                        <i class="ki-duotone ki-cross fs-2">
-                                            <span class="path1"></span>
-                                            <span class="path2"></span>
-                                        </i>
-                                    </button>
-                                </td>
-                            </tr>
                         @endif
                     </tbody>
                     <tfoot>
@@ -513,13 +470,29 @@
         function initSelect2(selectElement) {
             const $select = $(selectElement);
             if ($select.hasClass('select2-hidden-accessible')) {
-                $select.select2('destroy');
+                try {
+                    const select2Data = $select.data('select2');
+                    // Check if select2Data is an object (not boolean or null)
+                    if (select2Data && typeof select2Data === 'object' && select2Data.constructor === Object) {
+                        $select.select2('destroy');
+                    } else {
+                        $select.removeClass('select2-hidden-accessible');
+                        $select.next('.select2-container').remove();
+                    }
+                } catch (e) {
+                    $select.removeClass('select2-hidden-accessible');
+                    $select.next('.select2-container').remove();
+                }
             }
-            $select.select2({
-                dropdownParent: $('#modal-form'),
-                width: '100%',
-                placeholder: 'Select...'
-            });
+            try {
+                $select.select2({
+                    dropdownParent: $('#modal-form'),
+                    width: '100%',
+                    placeholder: 'Select...'
+                });
+            } catch (e) {
+                // Silently fail if Select2 initialization fails
+            }
         }
 
         // Update Select2 options and refresh
@@ -528,7 +501,19 @@
             const currentValue = $select.val();
 
             if (isSelect2) {
-                $select.select2('destroy');
+                try {
+                    const select2Data = $select.data('select2');
+                    // Check if select2Data is an object (not boolean or null)
+                    if (select2Data && typeof select2Data === 'object' && select2Data.constructor === Object) {
+                        $select.select2('destroy');
+                    } else {
+                        $select.removeClass('select2-hidden-accessible');
+                        $select.next('.select2-container').remove();
+                    }
+                } catch (e) {
+                    $select.removeClass('select2-hidden-accessible');
+                    $select.next('.select2-container').remove();
+                }
             }
 
             $select.html(options);
@@ -982,6 +967,19 @@
 
             // Calculate initial totals
             if ($('#products_body').length && $('#lenses_body').length) {
+                // If no lens rows exist, add one
+                if ($('#lenses_body').find('.lens-row').length === 0) {
+                    const $newRow = $(lensRowTemplate);
+                    $('#lenses_body').append($newRow);
+
+                    // Initialize Select2 for the new row
+                    setTimeout(function() {
+                        $newRow.find('.lens-range-select, .lens-type-select, .lens-category-select').each(function() {
+                            initSelect2(this);
+                        });
+                    }, 100);
+                }
+
                 calculateTotals();
 
                 // Initialize Select2 for existing selects with data-kt-select2
