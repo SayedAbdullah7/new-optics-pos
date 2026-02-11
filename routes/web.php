@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\CategoryController;
@@ -101,6 +103,45 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     ]);
 
 });
+
+/*
+|--------------------------------------------------------------------------
+| Data Reset Routes (Use with caution!)
+|--------------------------------------------------------------------------
+| Access via: /reset/{model} where model is: clients, invoices, products, stock, vendors, bills, all
+*/
+Route::get('/reset/{model}', function ($model) {
+    $tables = [
+        'clients'  => ['invoice_items', 'invoice_lenses', 'invoices', 'papers', 'clients'],
+        'invoices' => ['invoice_items', 'invoice_lenses', 'invoices'],
+        'products' => ['invoice_items', 'bill_items', 'stock_mutations', 'product_translations', 'products'],
+        'stock'    => ['stock_mutations'],
+        'vendors'  => ['bill_items', 'bills', 'vendors'],
+        'bills'    => ['bill_items', 'bills'],
+        'all'      => ['invoice_items', 'invoice_lenses', 'bill_items', 'transactions', 'expenses', 'stock_mutations', 'invoices', 'bills', 'papers', 'clients', 'vendors', 'product_translations', 'products'],
+    ];
+
+    if (!isset($tables[$model])) {
+        return response()->json(['success' => false, 'message' => 'Invalid model. Use: ' . implode(', ', array_keys($tables))], 400);
+    }
+
+    DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+
+    foreach ($tables[$model] as $table) {
+        if (Schema::hasTable($table)) {
+            DB::table($table)->truncate();
+        }
+    }
+
+    // Special: reset stock column to 0 for stock reset
+    if ($model === 'stock') {
+        DB::table('products')->update(['stock' => 0]);
+    }
+
+    DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+
+    return response()->json(['success' => true, 'message' => ucfirst($model) . ' data has been reset.']);
+})->name('reset');
 
 // Include Authentication Routes
 require __DIR__.'/auth.php';
