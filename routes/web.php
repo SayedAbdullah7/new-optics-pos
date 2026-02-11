@@ -109,27 +109,84 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
 | Data Reset Routes (Use with caution!)
 |--------------------------------------------------------------------------
 | Access via: /reset/{model} where model is: clients, invoices, products, stock, vendors, bills, all
+| الجداول الفرعية تُحذف تلقائياً مع الجداول الرئيسية
 */
 Route::get('/reset/{model}', function ($model) {
-    $tables = [
-        'clients'  => ['invoice_items', 'invoice_lenses', 'invoices', 'papers', 'clients'],
-        'invoices' => ['invoice_items', 'invoice_lenses', 'invoices'],
-        'products' => ['invoice_items', 'bill_items', 'stock_mutations', 'product_translations', 'products'],
-        'stock'    => ['stock_mutations'],
-        'vendors'  => ['bill_items', 'bills', 'vendors'],
-        'bills'    => ['bill_items', 'bills'],
-        'all'      => ['invoice_items', 'invoice_lenses', 'bill_items', 'transactions', 'expenses', 'stock_mutations', 'invoices', 'bills', 'papers', 'clients', 'vendors', 'product_translations', 'products'],
+    // تعريف الجداول الفرعية لكل جدول رئيسي (يتم حذفها تلقائياً)
+    $childTables = [
+        'clients'  => [
+            'invoice_items',      // فرعي لـ invoices
+            'invoice_lenses',     // فرعي لـ invoices
+            'transactions',       // فرعي لـ invoices (category_id = 1)
+            'invoices',           // فرعي لـ clients
+            'papers',             // فرعي لـ clients
+            'clients'             // الرئيسي
+        ],
+        'invoices' => [
+            'invoice_items',      // فرعي لـ invoices
+            'invoice_lenses',     // فرعي لـ invoices
+            'transactions',       // فرعي لـ invoices (category_id = 1)
+            'invoices'            // الرئيسي
+        ],
+        'products' => [
+            'invoice_items',      // فرعي (item_id → products)
+            'bill_items',        // فرعي (item_id → products)
+            'stock_mutations',    // فرعي لـ products
+            'product_translations', // فرعي لـ products
+            'products'            // الرئيسي
+        ],
+        'stock'    => [
+            'stock_mutations'     // فرعي لـ products
+        ],
+        'vendors'  => [
+            'bill_items',        // فرعي لـ bills
+            'transactions',       // فرعي لـ bills (category_id = 2)
+            'bills',              // فرعي لـ vendors
+            'vendors'             // الرئيسي
+        ],
+        'bills'    => [
+            'bill_items',        // فرعي لـ bills
+            'transactions',       // فرعي لـ bills (category_id = 2)
+            'bills'               // الرئيسي
+        ],
+        'all'      => [
+            'invoice_items',      // فرعي
+            'invoice_lenses',     // فرعي
+            'bill_items',        // فرعي
+            'transactions',       // فرعي
+            'expenses',           // فرعي
+            'stock_mutations',    // فرعي
+            'invoices',           // فرعي
+            'bills',              // فرعي
+            'papers',             // فرعي
+            'clients',            // رئيسي
+            'vendors',            // رئيسي
+            'product_translations', // فرعي
+            'products'            // رئيسي
+        ],
     ];
 
-    if (!isset($tables[$model])) {
-        return response()->json(['success' => false, 'message' => 'Invalid model. Use: ' . implode(', ', array_keys($tables))], 400);
+    if (!isset($childTables[$model])) {
+        return response()->json(['success' => false, 'message' => 'Invalid model. Use: ' . implode(', ', array_keys($childTables))], 400);
     }
 
     DB::statement('SET FOREIGN_KEY_CHECKS=0;');
 
-    foreach ($tables[$model] as $table) {
+    // حذف الجداول بالترتيب: الفرعية أولاً ثم الرئيسية
+    foreach ($childTables[$model] as $table) {
         if (Schema::hasTable($table)) {
-            DB::table($table)->truncate();
+            // حذف transactions المرتبطة بناءً على category_id
+            if ($table === 'transactions') {
+                if ($model === 'clients' || $model === 'invoices') {
+                    DB::table('transactions')->where('category_id', 1)->delete();
+                } elseif ($model === 'vendors' || $model === 'bills') {
+                    DB::table('transactions')->where('category_id', 2)->delete();
+                } else {
+                    DB::table('transactions')->truncate();
+                }
+            } else {
+                DB::table($table)->truncate();
+            }
         }
     }
 
@@ -140,7 +197,7 @@ Route::get('/reset/{model}', function ($model) {
 
     DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
-    return response()->json(['success' => true, 'message' => ucfirst($model) . ' data has been reset.']);
+    return response()->json(['success' => true, 'message' => ucfirst($model) . ' data and related child tables have been reset.']);
 })->name('reset');
 
 // Include Authentication Routes
