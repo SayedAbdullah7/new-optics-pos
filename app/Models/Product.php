@@ -107,6 +107,7 @@ class Product extends Model implements TranslatableContract
 
     /**
      * Get total quantity sold (from invoices).
+     * Note: Used for statistics only, not for stock calculation.
      */
     public function sold()
     {
@@ -115,6 +116,7 @@ class Product extends Model implements TranslatableContract
 
     /**
      * Get total quantity bought (from bills).
+     * Note: Used for statistics only, not for stock calculation.
      */
     public function bought()
     {
@@ -122,17 +124,8 @@ class Product extends Model implements TranslatableContract
     }
 
     /**
-     * Calculate actual stock: base stock - sold + bought.
-     */
-    public function stock2()
-    {
-        return ($this->attributes['stock'] ?? 0) - $this->sold() + $this->bought();
-    }
-
-    /**
      * Get stock attribute: base stock from DB + stock from HasStock mutations.
      * Override HasStock's getStockAttribute to combine base stock with mutations.
-     * Same implementation as old system.
      *
      * @param mixed $value The raw stock value from database
      * @return int Combined stock (base + mutations)

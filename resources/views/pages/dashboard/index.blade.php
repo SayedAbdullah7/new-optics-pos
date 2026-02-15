@@ -4,84 +4,84 @@
         <!--begin::Row-->
         <div class="row g-5 g-xl-10 mb-5 mb-xl-10">
             <!--begin::Col - Total Clients-->
-            <div class="col-md-6 col-lg-6 col-xl-6 col-xxl-3 mb-md-5 mb-xl-10">
-                <div class="card card-flush bgi-no-repeat bgi-size-contain bgi-position-x-end h-md-50 mb-5 mb-xl-10" style="background-color: #F1416C;">
-                    <div class="card-header pt-5">
-                        <div class="card-title d-flex flex-column">
-                            <span class="fs-2hx fw-bold text-white me-2 lh-1 ls-n2">{{ $stats['total_clients'] ?? 0 }}</span>
-                            <span class="text-white opacity-75 pt-1 fw-semibold fs-6">Total Clients</span>
+            <div class="col-sm-6 col-lg-3 mb-5 mb-lg-0">
+                <div class="card card-flush bgi-no-repeat bgi-size-contain bgi-position-x-end" style="background-color: #F1416C; min-height: 140px;">
+                    <div class="card-body d-flex flex-column justify-content-between py-6">
+                        <div class="d-flex flex-column">
+                            <span class="fs-2hx fw-bold text-white me-2 lh-1 ls-n2 mb-2">{{ $stats['total_clients'] ?? 0 }}</span>
+                            <span class="text-white opacity-75 fw-semibold fs-6">Total Clients</span>
                         </div>
-                    </div>
-                    <div class="card-body d-flex align-items-end pt-0">
-                        <a href="{{ route('admin.clients.index') }}" class="text-white fs-6 fw-semibold">View All
-                            <i class="ki-duotone ki-arrow-right fs-3 text-white">
-                                <span class="path1"></span>
-                                <span class="path2"></span>
-                            </i>
-                        </a>
+                        <div class="mt-4">
+                            <a href="{{ route('admin.clients.index') }}" class="text-white fs-6 fw-semibold">View All
+                                <i class="ki-duotone ki-arrow-right fs-3 text-white">
+                                    <span class="path1"></span>
+                                    <span class="path2"></span>
+                                </i>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
             <!--end::Col-->
 
             <!--begin::Col - Total Products-->
-            <div class="col-md-6 col-lg-6 col-xl-6 col-xxl-3 mb-md-5 mb-xl-10">
-                <div class="card card-flush bgi-no-repeat bgi-size-contain bgi-position-x-end h-md-50 mb-5 mb-xl-10" style="background-color: #7239EA;">
-                    <div class="card-header pt-5">
-                        <div class="card-title d-flex flex-column">
-                            <span class="fs-2hx fw-bold text-white me-2 lh-1 ls-n2">{{ $stats['total_products'] ?? 0 }}</span>
-                            <span class="text-white opacity-75 pt-1 fw-semibold fs-6">Total Products</span>
+            <div class="col-sm-6 col-lg-3 mb-5 mb-lg-0">
+                <div class="card card-flush bgi-no-repeat bgi-size-contain bgi-position-x-end" style="background-color: #7239EA; min-height: 140px;">
+                    <div class="card-body d-flex flex-column justify-content-between py-6">
+                        <div class="d-flex flex-column">
+                            <span class="fs-2hx fw-bold text-white me-2 lh-1 ls-n2 mb-2">{{ $stats['total_products'] ?? 0 }}</span>
+                            <span class="text-white opacity-75 fw-semibold fs-6">Total Products</span>
                         </div>
-                    </div>
-                    <div class="card-body d-flex align-items-end pt-0">
-                        <a href="{{ route('admin.products.index') }}" class="text-white fs-6 fw-semibold">View All
-                            <i class="ki-duotone ki-arrow-right fs-3 text-white">
-                                <span class="path1"></span>
-                                <span class="path2"></span>
-                            </i>
-                        </a>
+                        <div class="mt-4">
+                            <a href="{{ route('admin.products.index') }}" class="text-white fs-6 fw-semibold">View All
+                                <i class="ki-duotone ki-arrow-right fs-3 text-white">
+                                    <span class="path1"></span>
+                                    <span class="path2"></span>
+                                </i>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
             <!--end::Col-->
 
             <!--begin::Col - Total Vendors-->
-            <div class="col-md-6 col-lg-6 col-xl-6 col-xxl-3 mb-md-5 mb-xl-10">
-                <div class="card card-flush bgi-no-repeat bgi-size-contain bgi-position-x-end h-md-50 mb-5 mb-xl-10" style="background-color: #50CD89;">
-                    <div class="card-header pt-5">
-                        <div class="card-title d-flex flex-column">
-                            <span class="fs-2hx fw-bold text-white me-2 lh-1 ls-n2">{{ $stats['total_vendors'] ?? 0 }}</span>
-                            <span class="text-white opacity-75 pt-1 fw-semibold fs-6">Total Vendors</span>
+            <div class="col-sm-6 col-lg-3 mb-5 mb-lg-0">
+                <div class="card card-flush bgi-no-repeat bgi-size-contain bgi-position-x-end" style="background-color: #50CD89; min-height: 140px;">
+                    <div class="card-body d-flex flex-column justify-content-between py-6">
+                        <div class="d-flex flex-column">
+                            <span class="fs-2hx fw-bold text-white me-2 lh-1 ls-n2 mb-2">{{ $stats['total_vendors'] ?? 0 }}</span>
+                            <span class="text-white opacity-75 fw-semibold fs-6">Total Vendors</span>
                         </div>
-                    </div>
-                    <div class="card-body d-flex align-items-end pt-0">
-                        <a href="{{ route('admin.vendors.index') }}" class="text-white fs-6 fw-semibold">View All
-                            <i class="ki-duotone ki-arrow-right fs-3 text-white">
-                                <span class="path1"></span>
-                                <span class="path2"></span>
-                            </i>
-                        </a>
+                        <div class="mt-4">
+                            <a href="{{ route('admin.vendors.index') }}" class="text-white fs-6 fw-semibold">View All
+                                <i class="ki-duotone ki-arrow-right fs-3 text-white">
+                                    <span class="path1"></span>
+                                    <span class="path2"></span>
+                                </i>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
             <!--end::Col-->
 
             <!--begin::Col - Low Stock-->
-            <div class="col-md-6 col-lg-6 col-xl-6 col-xxl-3 mb-md-5 mb-xl-10">
-                <div class="card card-flush bgi-no-repeat bgi-size-contain bgi-position-x-end h-md-50 mb-5 mb-xl-10" style="background-color: #FFC700;">
-                    <div class="card-header pt-5">
-                        <div class="card-title d-flex flex-column">
-                            <span class="fs-2hx fw-bold text-white me-2 lh-1 ls-n2">{{ $stats['low_stock_products'] ?? 0 }}</span>
-                            <span class="text-white opacity-75 pt-1 fw-semibold fs-6">Low Stock Items</span>
+            <div class="col-sm-6 col-lg-3 mb-5 mb-lg-0">
+                <div class="card card-flush bgi-no-repeat bgi-size-contain bgi-position-x-end" style="background-color: #FFC700; min-height: 140px;">
+                    <div class="card-body d-flex flex-column justify-content-between py-6">
+                        <div class="d-flex flex-column">
+                            <span class="fs-2hx fw-bold text-white me-2 lh-1 ls-n2 mb-2">{{ $stats['low_stock_products'] ?? 0 }}</span>
+                            <span class="text-white opacity-75 fw-semibold fs-6">Low Stock Items</span>
                         </div>
-                    </div>
-                    <div class="card-body d-flex align-items-end pt-0">
-                        <a href="{{ route('admin.products.index') }}" class="text-white fs-6 fw-semibold">View All
-                            <i class="ki-duotone ki-arrow-right fs-3 text-white">
-                                <span class="path1"></span>
-                                <span class="path2"></span>
-                            </i>
-                        </a>
+                        <div class="mt-4">
+                            <a href="{{ route('admin.products.index') }}" class="text-white fs-6 fw-semibold">View All
+                                <i class="ki-duotone ki-arrow-right fs-3 text-white">
+                                    <span class="path1"></span>
+                                    <span class="path2"></span>
+                                </i>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>

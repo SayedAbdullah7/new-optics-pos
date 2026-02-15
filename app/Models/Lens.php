@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use Appstract\Stock\HasStock;
 use Illuminate\Database\Eloquent\Model;
 
 class Lens extends Model
 {
+    use HasStock;
+
     /**
      * The table associated with the model.
      */
@@ -62,14 +65,6 @@ class Lens extends Model
     public function type()
     {
         return $this->belongsTo(LensType::class, 'type_id');
-    }
-
-    /**
-     * Get lens stock records.
-     */
-    public function stock()
-    {
-        return $this->hasMany(LensStock::class);
     }
 
     /**

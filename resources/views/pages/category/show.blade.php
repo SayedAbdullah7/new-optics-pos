@@ -7,28 +7,24 @@
             <div class="d-flex flex-wrap justify-content-between align-items-center">
                 <div class="d-flex align-items-center">
                     <div class="symbol symbol-60px symbol-circle me-4">
-                        @if($product->image && $product->image != 'default.png')
-                            <img src="{{ $product->image_path }}" alt="{{ $product->name }}" class="symbol-label">
-                        @else
-                            <div class="symbol-label bg-light-primary text-primary fs-2 fw-bold">
-                                {{ strtoupper(substr($product->name, 0, 1)) }}
-                            </div>
-                        @endif
+                        <div class="symbol-label bg-light-primary text-primary fs-2 fw-bold">
+                            {{ strtoupper(substr($category->name, 0, 1)) }}
+                        </div>
                     </div>
                     <div>
-                        <h3 class="mb-1 text-gray-900">{{ $product->name }}</h3>
-                        <span class="text-muted fs-7">Product #{{ $product->id }} • Item Code: {{ $product->item_code }} • Created {{ $product->created_at->diffForHumans() }}</span>
+                        <h3 class="mb-1 text-gray-900">{{ $category->name }}</h3>
+                        <span class="text-muted fs-7">Category #{{ $category->id }} • Created {{ $category->created_at->diffForHumans() }}</span>
                     </div>
                 </div>
                 <div class="d-flex gap-2">
                     <x-action-button
-                        :action="route('admin.products.edit', $product)"
+                        :action="route('admin.categories.edit', $category)"
                         type="edit"
                         variant="warning"
                         icon="pencil"
-                        label="Edit Product"
+                        label="Edit Category"
                     />
-                    <a href="{{ route('admin.products.index') }}" class="btn btn-light">
+                    <a href="{{ route('admin.categories.index') }}" class="btn btn-light">
                         <i class="ki-duotone ki-arrow-left fs-4 me-1">
                             <span class="path1"></span>
                             <span class="path2"></span>
@@ -41,19 +37,17 @@
     </div>
 
     <div class="row g-5">
-        <!-- Left Column - Product Details -->
+        <!-- Left Column - Category Details & Products -->
         <div class="col-lg-8">
-            <!-- Product Information Card -->
+            <!-- Category Information Card -->
             <div class="card mb-5">
                 <div class="card-header bg-primary">
                     <h5 class="card-title mb-0 text-white">
-                        <i class="ki-duotone ki-box fs-3 me-2 text-white">
+                        <i class="ki-duotone ki-category fs-3 me-2 text-white">
                             <span class="path1"></span>
                             <span class="path2"></span>
-                            <span class="path3"></span>
-                            <span class="path4"></span>
                         </i>
-                        Product Details
+                        Category Information
                     </h5>
                 </div>
                 <div class="card-body">
@@ -64,51 +58,26 @@
                                     <span class="path1"></span>
                                     <span class="path2"></span>
                                 </i>
-                                Item Code
+                                Category Name
                             </label>
-                            <span class="text-gray-800 fs-4 fw-bold">{{ $product->item_code }}</span>
+                            <span class="text-gray-800 fs-4 fw-bold">{{ $category->name }}</span>
                         </div>
 
                         <div class="col-md-6 mb-5">
                             <label class="text-muted fs-5 fw-semibold d-block mb-3">
-                                <i class="ki-duotone ki-category fs-4 me-2">
+                                <i class="ki-duotone ki-package fs-4 me-2">
                                     <span class="path1"></span>
                                     <span class="path2"></span>
+                                    <span class="path3"></span>
                                 </i>
-                                Category
+                                Total Products
                             </label>
-                            <span class="text-gray-800 fs-4">
-                                {{ $product->category ? $product->category->name : 'N/A' }}
+                            <span class="text-gray-800 fs-4 fw-bold text-primary">
+                                {{ $analytics['total_products'] ?? 0 }} products
                             </span>
                         </div>
 
-                        <div class="col-md-6 mb-5">
-                            <label class="text-muted fs-5 fw-semibold d-block mb-3">
-                                <i class="ki-duotone ki-dollar fs-4 me-2">
-                                    <span class="path1"></span>
-                                    <span class="path2"></span>
-                                </i>
-                                Sale Price
-                            </label>
-                            <span class="text-gray-800 fs-4 fw-bold text-success">
-                                {{ number_format($product->sale_price, 2) }} EGP
-                            </span>
-                        </div>
-
-                        <div class="col-md-6 mb-5">
-                            <label class="text-muted fs-5 fw-semibold d-block mb-3">
-                                <i class="ki-duotone ki-basket fs-4 me-2">
-                                    <span class="path1"></span>
-                                    <span class="path2"></span>
-                                </i>
-                                Purchase Price
-                            </label>
-                            <span class="text-gray-800 fs-4">
-                                {{ number_format($product->purchase_price, 2) }} EGP
-                            </span>
-                        </div>
-
-                        <!-- Product Names in different languages -->
+                        <!-- Category Names in different languages -->
                         @foreach(config('translatable.locales') as $locale)
                             <div class="col-md-6 mb-5">
                                 <label class="text-muted fs-5 fw-semibold d-block mb-3">
@@ -119,40 +88,73 @@
                                     Name ({{ strtoupper($locale) }})
                                 </label>
                                 <span class="text-gray-800 fs-5">
-                                    {{ $product->translate($locale)->name ?? 'N/A' }}
+                                    {{ $category->translate($locale)->name ?? 'N/A' }}
                                 </span>
                             </div>
                         @endforeach
+                    </div>
+                </div>
+            </div>
 
-                        <!-- Descriptions in different languages -->
-                        @foreach(config('translatable.locales') as $locale)
-                            @if($product->translate($locale)->description ?? null)
-                                <div class="col-12 mb-5">
-                                    <label class="text-muted fs-5 fw-semibold d-block mb-3">
-                                        <i class="ki-duotone ki-file-text fs-4 me-2">
-                                            <span class="path1"></span>
-                                            <span class="path2"></span>
-                                        </i>
-                                        Description ({{ strtoupper($locale) }})
-                                    </label>
-                                    <span class="text-gray-800 fs-5">{{ $product->translate($locale)->description }}</span>
-                                </div>
-                            @endif
-                        @endforeach
-
-                        <!-- Product Image -->
-                        @if($product->image && $product->image != 'default.png')
-                            <div class="col-12 mb-5">
-                                <label class="text-muted fs-5 fw-semibold d-block mb-3">
-                                    <i class="ki-duotone ki-image fs-4 me-2">
-                                        <span class="path1"></span>
-                                        <span class="path2"></span>
-                                    </i>
-                                    Product Image
-                                </label>
-                                <img src="{{ $product->image_path }}" alt="{{ $product->name }}" class="img-thumbnail" style="max-height: 300px;">
-                            </div>
-                        @endif
+            <!-- Products in Category -->
+            <div class="card">
+                <div class="card-header bg-light-info">
+                    <h5 class="card-title mb-0 text-info">
+                        <i class="ki-duotone ki-package fs-3 me-2">
+                            <span class="path1"></span>
+                            <span class="path2"></span>
+                            <span class="path3"></span>
+                        </i>
+                        Products in This Category
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-row-dashed table-row-gray-300 align-middle gs-0 gy-4">
+                            <thead>
+                                <tr class="fw-bold text-muted">
+                                    <th>Product</th>
+                                    <th class="text-end">Stock</th>
+                                    <th class="text-end">Sale Price</th>
+                                    <th class="text-end">Purchase Price</th>
+                                    <th class="text-end">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($products ?? [] as $product)
+                                    @php
+                                        $stockClass = 'text-success';
+                                        if ($product->stock <= 0) $stockClass = 'text-danger';
+                                        elseif ($product->stock <= 10) $stockClass = 'text-warning';
+                                    @endphp
+                                    <tr>
+                                        <td>
+                                            <a href="{{ route('admin.products.show', $product->id) }}" class="text-gray-800 text-hover-primary fw-bold">
+                                                {{ $product->name }}
+                                            </a>
+                                        </td>
+                                        <td class="text-end">
+                                            <span class="{{ $stockClass }} fw-bold">{{ $product->stock }}</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <span class="text-gray-800">{{ number_format($product->sale_price, 2) }} EGP</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <span class="text-gray-600">{{ number_format($product->purchase_price, 2) }} EGP</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <a href="{{ route('admin.products.show', $product->id) }}" class="btn btn-sm btn-light-primary">
+                                                View
+                                            </a>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted py-10">No products in this category</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -174,18 +176,12 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <!-- Current Stock -->
+                    <!-- Total Stock -->
                     <div class="mb-5">
-                        <label class="text-muted fs-5 fw-semibold d-block mb-3">Current Stock</label>
-                        @php
-                            $stockClass = 'text-success';
-                            if ($product->stock <= 0) $stockClass = 'text-danger';
-                            elseif ($product->stock <= 10) $stockClass = 'text-warning';
-                        @endphp
-                        <span class="text-gray-800 fs-2 fw-bold {{ $stockClass }}">
-                            {{ $product->stock }} units
+                        <label class="text-muted fs-5 fw-semibold d-block mb-3">Total Stock</label>
+                        <span class="text-gray-800 fs-2 fw-bold text-primary">
+                            {{ number_format($analytics['total_stock'] ?? 0) }} units
                         </span>
-                        <div class="text-muted fs-7">(Base: {{ $product->getRawOriginal('stock') ?? 0 }} + Mutations)</div>
                     </div>
 
                     <!-- Stock Value at Cost -->
@@ -240,22 +236,12 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <!-- Profit Margin (Per Unit) -->
-                    <div class="mb-5">
-                        <label class="text-muted fs-5 fw-semibold d-block mb-3">Profit Margin (Per Unit)</label>
-                        <span class="text-gray-800 fs-3 fw-bold text-success">
-                            {{ number_format($product->profit, 2) }} EGP
-                        </span>
-                        <div class="text-muted fs-6">({{ $product->profit_percent }}%)</div>
-                    </div>
-
                     <!-- Expected Revenue from Stock -->
                     <div class="mb-5">
                         <label class="text-muted fs-5 fw-semibold d-block mb-3">Expected Revenue (from Stock)</label>
                         <span class="text-gray-800 fs-4 fw-bold text-primary">
                             {{ number_format($analytics['expected_revenue'] ?? 0, 2) }} EGP
                         </span>
-                        <div class="text-muted fs-7">({{ $product->stock }} units × {{ number_format($product->sale_price, 2) }} EGP)</div>
                     </div>
 
                     <!-- Expected Profit from Stock -->
@@ -266,10 +252,10 @@
                         </span>
                     </div>
 
-                    <hr class="my-5">
-
-                    <!-- Total Revenue (Actual) -->
                     @if(($analytics['total_sold_qty'] ?? 0) > 0)
+                        <hr class="my-5">
+
+                        <!-- Total Revenue (Actual) -->
                         <div class="mb-5">
                             <label class="text-muted fs-5 fw-semibold d-block mb-3">Total Revenue (Actual)</label>
                             <span class="text-gray-800 fs-4 fw-bold text-success">
@@ -278,21 +264,12 @@
                             <div class="text-muted fs-7">From {{ number_format($analytics['total_sold_qty'] ?? 0) }} units sold</div>
                         </div>
 
-                        <!-- Average Actual Sale Price -->
-                        <div class="mb-5">
-                            <label class="text-muted fs-5 fw-semibold d-block mb-3">Average Actual Sale Price</label>
-                            <span class="text-gray-800 fs-4">
-                                {{ number_format($analytics['avg_actual_sale_price'] ?? 0, 2) }} EGP
-                            </span>
-                        </div>
-
                         <!-- COGS -->
                         <div class="mb-5">
                             <label class="text-muted fs-5 fw-semibold d-block mb-3">Cost of Goods Sold (COGS)</label>
                             <span class="text-gray-800 fs-4">
-                                {{ number_format($analytics['cogs'] ?? 0, 2) }} EGP
+                                {{ number_format($analytics['total_cogs'] ?? 0, 2) }} EGP
                             </span>
-                            <div class="text-muted fs-7">({{ number_format($analytics['total_sold_qty'] ?? 0) }} × {{ number_format($product->purchase_price, 2) }} EGP)</div>
                         </div>
 
                         <!-- Realized Gross Profit -->
@@ -304,9 +281,9 @@
                         </div>
                     @endif
 
-                    <!-- Total Purchase Spent -->
                     @if(($analytics['total_bought_qty'] ?? 0) > 0)
                         <hr class="my-5">
+                        <!-- Total Purchase Spent -->
                         <div class="mb-5">
                             <label class="text-muted fs-5 fw-semibold d-block mb-3">Total Purchase Spent</label>
                             <span class="text-gray-800 fs-4">
@@ -339,7 +316,7 @@
                             </i>
                             Created Date
                         </label>
-                        <span class="text-gray-800 fs-5">{{ $product->created_at->format('M d, Y H:i') }}</span>
+                        <span class="text-gray-800 fs-5">{{ $category->created_at->format('M d, Y H:i') }}</span>
                     </div>
 
                     <!-- Updated At -->
@@ -351,7 +328,7 @@
                             </i>
                             Last Updated
                         </label>
-                        <span class="text-gray-800 fs-5">{{ $product->updated_at->format('M d, Y H:i') }}</span>
+                        <span class="text-gray-800 fs-5">{{ $category->updated_at->format('M d, Y H:i') }}</span>
                     </div>
                 </div>
             </div>

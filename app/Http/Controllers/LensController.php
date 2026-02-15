@@ -75,8 +75,46 @@ class LensController extends Controller
     public function show(Lens $lens): View
     {
         $lens->load(['rangePower', 'type', 'category']);
-
-        return view('pages.lens.show', compact('lens'));
+        
+        // Calculate financial analytics
+        // Get sold quantity and revenue (excluding cancelled invoices)
+        $soldData = \App\Models\InvoiceLens::where('lens_id', $lens->id)
+            ->whereHas('invoice', function($q) {
+                $q->whereNotIn('status', ['canceled', 'cancelled']);
+            })
+            ->selectRaw('SUM(quantity) as total_sold_qty, SUM(total) as total_revenue')
+            ->first();
+        
+        $soldQty = (int) ($soldData->total_sold_qty ?? 0);
+        $revenue = (float) ($soldData->total_revenue ?? 0);
+        
+        // Get bought quantity and total spent
+        $boughtData = DB::table('bill_lenses')
+            ->where('lens_id', $lens->id)
+            ->selectRaw('SUM(quantity) as total_bought_qty, SUM(total) as total_spent')
+            ->first();
+        
+        $boughtQty = (int) ($boughtData->total_bought_qty ?? 0);
+        $purchaseSpent = (float) ($boughtData->total_spent ?? 0);
+        
+        // Calculate metrics
+        $cogs = $soldQty * ($lens->purchase_price ?? 0);
+        $realizedGrossProfit = $revenue - $cogs;
+        $stockValueAtCost = $lens->stock * ($lens->purchase_price ?? 0);
+        $expectedProfit = $lens->stock * (($lens->sale_price ?? 0) - ($lens->purchase_price ?? 0));
+        
+        $analytics = [
+            'current_stock' => $lens->stock,
+            'stock_value_at_cost' => $stockValueAtCost,
+            'expected_profit' => $expectedProfit,
+            'total_sold_qty' => $soldQty,
+            'total_revenue' => $revenue,
+            'total_bought_qty' => $boughtQty,
+            'total_purchase_spent' => $purchaseSpent,
+            'realized_gross_profit' => $realizedGrossProfit,
+        ];
+        
+        return view('pages.lens.show', compact('lens', 'analytics'));
     }
 
     /**

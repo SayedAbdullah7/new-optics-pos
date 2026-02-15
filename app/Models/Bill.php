@@ -68,6 +68,14 @@ class Bill extends Model
     }
 
     /**
+     * Get bill lenses.
+     */
+    public function lenses()
+    {
+        return $this->hasMany(BillLens::class);
+    }
+
+    /**
      * Get transactions for this bill.
      */
     public function transactions()

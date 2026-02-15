@@ -7,7 +7,12 @@ use App\Http\Requests\BillRequest;
 use App\Models\Account;
 use App\Models\Bill;
 use App\Models\BillItem;
+use App\Models\BillLens;
+use App\Models\Lens;
+use App\Models\LensCategory;
+use App\Models\LensType;
 use App\Models\Product;
+use App\Models\RangePower;
 use App\Models\Transaction;
 use App\Models\Vendor;
 use Illuminate\Http\JsonResponse;
@@ -31,18 +36,85 @@ class BillController extends Controller
         ]);
     }
 
-    public function create(Request $request): View
+    public function create(Request $request)
     {
+        // Handle AJAX requests for dynamic lens filtering (copied from InvoiceController)
+        if ($request->ajax()) {
+            if ($request->has('lens_code')) {
+                // Get lens by code and return range, type, category info
+                $lens = Lens::with(['type', 'category'])->where('lens_code', $request->lens_code)->first();
+
+                if (!$lens) {
+                    return response()->json(['error' => 'Lens not found'], 404);
+                }
+
+                $range = $lens->RangePower_id;
+                $type = $lens->type;
+                $typeOption = ['value' => $type->id, 'text' => $type->name];
+                $category = $lens->category;
+                $categoryId = $lens->category_id . "&" . $lens->purchase_price . "&" . $lens->id;
+                $categoryOption = ['value' => $categoryId, 'text' => $category->brand_name ?? $category->name];
+
+                return response()->json([
+                    'range' => $range,
+                    'type' => $typeOption,
+                    'type_id' => $type->id,
+                    'category' => $categoryOption,
+                    'category_id' => $categoryId,
+                ]);
+            } elseif ($request->has('type') && $request->has('range')) {
+                // Get categories based on type and range
+                $lenses = Lens::with('category')
+                    ->where('type_id', $request->type)
+                    ->when($request->range != 4, function($q) use ($request) {
+                        return $q->where('RangePower_id', $request->range);
+                    })
+                    ->get();
+
+                $array = [];
+                foreach ($lenses as $lens) {
+                    $category = $lens->category;
+                    $array[] = [
+                        'value' => $category->id . "&" . $lens->purchase_price . "&" . $lens->id,
+                        'text' => $category->brand_name ?? $category->name
+                    ];
+                }
+
+                return response()->json($array);
+            } elseif ($request->has('range')) {
+                // Get types based on range
+                $lenses = Lens::with('type')
+                    ->when($request->range != 4, function($q) use ($request) {
+                        return $q->where('RangePower_id', $request->range);
+                    })
+                    ->get();
+
+                $types = $lenses->pluck('type')->unique('id')->values();
+
+                $array = [];
+                foreach ($types as $type) {
+                    if ($type) {
+                        $array[] = ['value' => $type->id, 'text' => $type->name];
+                    }
+                }
+
+                return response()->json($array);
+            }
+        }
+
         $vendors = Vendor::all();
         $products = Product::with('translations')->get();
         $accounts = Account::with('translations')->active()->orderBy('default', 'DESC')->get();
+        $ranges = RangePower::all();
+        $types = LensType::all();
+        $categories = LensCategory::all();
 
         $vendor = null;
         if ($request->vendor_id) {
             $vendor = Vendor::find($request->vendor_id);
         }
 
-        return view('pages.bill.form', compact('vendors', 'products', 'accounts', 'vendor'));
+        return view('pages.bill.form', compact('vendors', 'products', 'accounts', 'vendor', 'ranges', 'types', 'categories'));
     }
 
     public function store(BillRequest $request): JsonResponse
@@ -56,7 +128,9 @@ class BillController extends Controller
 
             // Calculate totals from items
             $productsAmount = 0;
+            $lensesAmount = 0;
             $items = [];
+            $lenses = [];
 
             // Process products
             if ($request->has('product')) {
@@ -83,8 +157,35 @@ class BillController extends Controller
                 }
             }
 
+            // Process lenses
+            if ($request->has('lens_category')) {
+                foreach ($request->lens_category as $i => $categoryValue) {
+                    if (empty($categoryValue)) continue;
+
+                    $categoryParts = explode('&', $categoryValue);
+                    $lensId = $categoryParts[2] ?? null;
+                    $price = $request->lens_price[$i] ?? 0;
+                    $quantity = $request->lens_quantity[$i] ?? 1;
+                    $total = $price * $quantity;
+                    $lensesAmount += $total;
+
+                    if ($lensId) {
+                        $lens = Lens::with(['rangePower', 'type', 'category'])->find($lensId);
+                        $lensName = $lens ? $lens->full_name : 'Lens';
+
+                        $lenses[] = [
+                            'lens_id' => $lensId,
+                            'name' => $lensName,
+                            'price' => $price,
+                            'quantity' => $quantity,
+                            'total' => $total,
+                        ];
+                    }
+                }
+            }
+
             // Set calculated amount
-            $data['amount'] = $productsAmount;
+            $data['amount'] = $productsAmount + $lensesAmount;
 
             // Determine status based on payment
             $paidAmount = $request->paid ?? 0;
@@ -103,6 +204,30 @@ class BillController extends Controller
             foreach ($items as $item) {
                 $item['bill_id'] = $bill->id;
                 BillItem::create($item);
+
+                // Increase stock
+                $product = Product::find($item['item_id']);
+                if ($product && method_exists($product, 'increaseStock')) {
+                    $product->increaseStock($item['quantity'], [
+                        'description' => 'Bill #' . $bill->bill_number,
+                        'reference' => $bill,
+                    ]);
+                }
+            }
+
+            // Create bill lenses
+            foreach ($lenses as $lens) {
+                $lens['bill_id'] = $bill->id;
+                BillLens::create($lens);
+
+                // Increase lens stock
+                $lensModel = Lens::find($lens['lens_id']);
+                if ($lensModel && method_exists($lensModel, 'increaseStock')) {
+                    $lensModel->increaseStock($lens['quantity'], [
+                        'description' => 'Bill #' . $bill->bill_number,
+                        'reference' => $bill,
+                    ]);
+                }
             }
 
             // Create payment transaction if paid
@@ -137,7 +262,7 @@ class BillController extends Controller
 
     public function show(Bill $bill): View
     {
-        $bill->load(['vendor', 'items.product.translations', 'transactions.account.translations', 'user']);
+        $bill->load(['vendor', 'items.product.translations', 'lenses.lens.type', 'lenses.lens.category', 'lenses.lens.rangePower', 'transactions.account.translations', 'user']);
         return view('pages.bill.show', compact('bill'));
     }
 
@@ -146,13 +271,20 @@ class BillController extends Controller
         $vendors = Vendor::all();
         $products = Product::with('translations')->get();
         $accounts = Account::with('translations')->active()->orderBy('default', 'DESC')->get();
-        $bill->load(['items']);
+        $ranges = RangePower::all();
+        $types = LensType::all();
+        $categories = LensCategory::all();
+
+        $bill->load(['items', 'lenses.lens']);
 
         return view('pages.bill.form', [
             'model' => $bill,
             'vendors' => $vendors,
             'products' => $products,
             'accounts' => $accounts,
+            'ranges' => $ranges,
+            'types' => $types,
+            'categories' => $categories,
         ]);
     }
 
@@ -165,7 +297,9 @@ class BillController extends Controller
 
             // Calculate totals from items
             $productsAmount = 0;
+            $lensesAmount = 0;
             $items = [];
+            $lenses = [];
 
             // Process products
             if ($request->has('product')) {
@@ -192,16 +326,90 @@ class BillController extends Controller
                 }
             }
 
-            // Set calculated amount
-            $data['amount'] = $productsAmount;
+            // Process lenses
+            if ($request->has('lens_category')) {
+                foreach ($request->lens_category as $i => $categoryValue) {
+                    if (empty($categoryValue)) continue;
 
-            // Delete old items
+                    $categoryParts = explode('&', $categoryValue);
+                    $lensId = $categoryParts[2] ?? null;
+                    $price = $request->lens_price[$i] ?? 0;
+                    $quantity = $request->lens_quantity[$i] ?? 1;
+                    $total = $price * $quantity;
+                    $lensesAmount += $total;
+
+                    if ($lensId) {
+                        $lens = Lens::with(['rangePower', 'type', 'category'])->find($lensId);
+                        $lensName = $lens ? $lens->full_name : 'Lens';
+
+                        $lenses[] = [
+                            'lens_id' => $lensId,
+                            'name' => $lensName,
+                            'price' => $price,
+                            'quantity' => $quantity,
+                            'total' => $total,
+                        ];
+                    }
+                }
+            }
+
+            // Set calculated amount
+            $data['amount'] = $productsAmount + $lensesAmount;
+
+            // Restore old stock for products
+            foreach ($bill->items as $oldItem) {
+                $product = Product::find($oldItem->item_id);
+                if ($product && method_exists($product, 'decreaseStock')) {
+                    $product->decreaseStock($oldItem->quantity, [
+                        'description' => 'Bill update - restore stock for #' . $bill->bill_number,
+                        'reference' => $bill,
+                    ]);
+                }
+            }
+
+            // Restore old stock for lenses
+            foreach ($bill->lenses as $oldLens) {
+                $lens = Lens::find($oldLens->lens_id);
+                if ($lens && method_exists($lens, 'decreaseStock')) {
+                    $lens->decreaseStock($oldLens->quantity, [
+                        'description' => 'Bill update - restore stock for #' . $bill->bill_number,
+                        'reference' => $bill,
+                    ]);
+                }
+            }
+
+            // Delete old items and lenses
             $bill->items()->delete();
+            $bill->lenses()->delete();
 
             // Create new bill items
             foreach ($items as $item) {
                 $item['bill_id'] = $bill->id;
                 BillItem::create($item);
+
+                // Increase stock
+                $product = Product::find($item['item_id']);
+                if ($product && method_exists($product, 'increaseStock')) {
+                    $product->increaseStock($item['quantity'], [
+                        'description' => 'Bill update #' . $bill->bill_number,
+                        'reference' => $bill,
+                    ]);
+                }
+            }
+
+            // Create new bill lenses
+            foreach ($lenses as $lens) {
+                $lens['bill_id'] = $bill->id;
+                BillLens::create($lens);
+
+                // Increase stock
+                $lensModel = Lens::find($lens['lens_id']);
+                if ($lensModel && method_exists($lensModel, 'increaseStock')) {
+                    $lensModel->increaseStock($lens['quantity'], [
+                        'description' => 'Bill update #' . $bill->bill_number,
+                        'reference' => $bill,
+                    ]);
+                }
             }
 
             // Update bill
@@ -247,6 +455,29 @@ class BillController extends Controller
                 ]);
             }
 
+            // Decrease stock for items
+            foreach ($bill->items as $item) {
+                $product = Product::find($item->item_id);
+                if ($product && method_exists($product, 'decreaseStock')) {
+                    $product->decreaseStock($item->quantity, [
+                        'description' => 'Bill deleted #' . $bill->bill_number,
+                        'reference' => $bill,
+                    ]);
+                }
+            }
+
+            // Decrease stock for lenses
+            foreach ($bill->lenses as $lens) {
+                $lensModel = Lens::find($lens->lens_id);
+                if ($lensModel && method_exists($lensModel, 'decreaseStock')) {
+                    $lensModel->decreaseStock($lens->quantity, [
+                        'description' => 'Bill deleted #' . $bill->bill_number,
+                        'reference' => $bill,
+                    ]);
+                }
+            }
+
+            $bill->lenses()->delete();
             $bill->delete();
 
             DB::commit();

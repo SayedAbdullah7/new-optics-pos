@@ -1,4 +1,12 @@
 <div class="d-flex justify-content-end gap-2">
+    <!-- View Button -->
+    <a href="{{ route('admin.categories.show', $model->id) }}"
+       class="btn btn-icon btn-light-info btn-sm"
+       data-bs-toggle="tooltip"
+       title="View category">
+        <i class="fas fa-eye"></i>
+    </a>
+
     <!-- Edit Button -->
     <a href="#"
        class="btn btn-icon btn-light-warning btn-sm has_action"

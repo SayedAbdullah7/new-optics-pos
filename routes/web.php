@@ -16,6 +16,7 @@ use App\Http\Controllers\LensController;
 use App\Http\Controllers\LensTypeController;
 use App\Http\Controllers\LensCategoryController;
 use App\Http\Controllers\StockController;
+use App\Http\Controllers\SystemUpdateController;
 
 /*
 |--------------------------------------------------------------------------
@@ -101,6 +102,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
     Route::resource('lens-brands', LensCategoryController::class)->except(['index'])->parameters([
         'lens-brands' => 'lens_category'
     ]);
+
+    // System Updates
+    Route::get('/system/update', [SystemUpdateController::class, 'update'])->name('system.update');
 
 });
 

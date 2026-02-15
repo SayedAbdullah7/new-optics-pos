@@ -149,7 +149,7 @@
 
         <!-- Right Column - Statistics & Info -->
         <div class="col-lg-4">
-            <!-- Statistics Card -->
+            <!-- Stock Information Card -->
             <div class="card mb-5">
                 <div class="card-header bg-light-primary">
                     <h5 class="card-title mb-0 text-primary">
@@ -159,18 +159,83 @@
                             <span class="path3"></span>
                             <span class="path4"></span>
                         </i>
-                        Statistics
+                        Stock Information
                     </h5>
                 </div>
                 <div class="card-body">
-                    <!-- Profit Margin -->
+                    <!-- Current Stock -->
+                    <div class="mb-5">
+                        <label class="text-muted fs-5 fw-semibold d-block mb-3">Current Stock</label>
+                        @php
+                            $stockClass = 'text-success';
+                            if (($analytics['current_stock'] ?? 0) <= 0) $stockClass = 'text-danger';
+                            elseif (($analytics['current_stock'] ?? 0) <= 10) $stockClass = 'text-warning';
+                        @endphp
+                        <span class="text-gray-800 fs-2 fw-bold {{ $stockClass }}">
+                            {{ $analytics['current_stock'] ?? 0 }} units
+                        </span>
+                    </div>
+
+                    <!-- Stock Value at Cost -->
+                    <div class="mb-5">
+                        <label class="text-muted fs-5 fw-semibold d-block mb-3">
+                            <i class="ki-duotone ki-dollar fs-4 me-2">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                            </i>
+                            Stock Value at Cost
+                        </label>
+                        <span class="text-gray-800 fs-4 fw-bold">
+                            {{ number_format($analytics['stock_value_at_cost'] ?? 0, 2) }} EGP
+                        </span>
+                    </div>
+
+                    <!-- Sold Quantity -->
+                    <div class="mb-5">
+                        <label class="text-muted fs-5 fw-semibold d-block mb-3">
+                            <i class="ki-duotone ki-arrow-down fs-4 me-2 text-danger">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                            </i>
+                            Total Sold Quantity
+                        </label>
+                        <span class="text-gray-800 fs-4 text-danger">{{ number_format($analytics['total_sold_qty'] ?? 0) }} units</span>
+                    </div>
+
+                    <!-- Bought Quantity -->
+                    <div class="mb-5">
+                        <label class="text-muted fs-5 fw-semibold d-block mb-3">
+                            <i class="ki-duotone ki-arrow-up fs-4 me-2 text-success">
+                                <span class="path1"></span>
+                                <span class="path2"></span>
+                            </i>
+                            Total Bought Quantity
+                        </label>
+                        <span class="text-gray-800 fs-4 text-success">{{ number_format($analytics['total_bought_qty'] ?? 0) }} units</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Financial Information Card -->
+            <div class="card mb-5">
+                <div class="card-header bg-light-success">
+                    <h5 class="card-title mb-0 text-success">
+                        <i class="ki-duotone ki-chart fs-3 me-2">
+                            <span class="path1"></span>
+                            <span class="path2"></span>
+                        </i>
+                        Financial Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Profit Margin (Per Unit) -->
                     @if($lens->purchase_price > 0)
                         @php
                             $profit = $lens->sale_price - $lens->purchase_price;
                             $profitMargin = ($profit / $lens->sale_price) * 100;
                         @endphp
                         <div class="mb-5">
-                            <label class="text-muted fs-5 fw-semibold d-block mb-3">Profit Margin</label>
+                            <label class="text-muted fs-5 fw-semibold d-block mb-3">Profit Margin (Per Unit)</label>
                             <span class="text-gray-800 fs-3 fw-bold text-success">
                                 {{ number_format($profitMargin, 2) }}%
                             </span>
@@ -178,6 +243,62 @@
                         </div>
                     @endif
 
+                    <!-- Expected Profit from Stock -->
+                    <div class="mb-5">
+                        <label class="text-muted fs-5 fw-semibold d-block mb-3">Expected Profit (from Stock)</label>
+                        <span class="text-gray-800 fs-4 fw-bold text-success">
+                            {{ number_format($analytics['expected_profit'] ?? 0, 2) }} EGP
+                        </span>
+                        <div class="text-muted fs-7">({{ $analytics['current_stock'] ?? 0 }} units × {{ number_format($profit ?? 0, 2) }} EGP)</div>
+                    </div>
+
+                    @if(($analytics['total_sold_qty'] ?? 0) > 0)
+                        <hr class="my-5">
+
+                        <!-- Total Revenue -->
+                        <div class="mb-5">
+                            <label class="text-muted fs-5 fw-semibold d-block mb-3">Total Revenue</label>
+                            <span class="text-gray-800 fs-4 fw-bold text-success">
+                                {{ number_format($analytics['total_revenue'] ?? 0, 2) }} EGP
+                            </span>
+                            <div class="text-muted fs-7">From {{ number_format($analytics['total_sold_qty'] ?? 0) }} units sold</div>
+                        </div>
+
+                        <!-- Realized Gross Profit -->
+                        <div class="mb-5">
+                            <label class="text-muted fs-5 fw-semibold d-block mb-3">Realized Gross Profit</label>
+                            <span class="text-gray-800 fs-3 fw-bold text-success">
+                                {{ number_format($analytics['realized_gross_profit'] ?? 0, 2) }} EGP
+                            </span>
+                        </div>
+                    @endif
+
+                    @if(($analytics['total_bought_qty'] ?? 0) > 0)
+                        <hr class="my-5">
+                        <!-- Total Purchase Spent -->
+                        <div class="mb-5">
+                            <label class="text-muted fs-5 fw-semibold d-block mb-3">Total Purchase Spent</label>
+                            <span class="text-gray-800 fs-4">
+                                {{ number_format($analytics['total_purchase_spent'] ?? 0, 2) }} EGP
+                            </span>
+                            <div class="text-muted fs-7">For {{ number_format($analytics['total_bought_qty'] ?? 0) }} units</div>
+                        </div>
+                    @endif
+                </div>
+            </div>
+
+            <!-- Date Information Card -->
+            <div class="card mb-5">
+                <div class="card-header bg-light-info">
+                    <h5 class="card-title mb-0 text-info">
+                        <i class="ki-duotone ki-calendar fs-3 me-2">
+                            <span class="path1"></span>
+                            <span class="path2"></span>
+                        </i>
+                        Date Information
+                    </h5>
+                </div>
+                <div class="card-body">
                     <!-- Created At -->
                     <div class="mb-5">
                         <label class="text-muted fs-5 fw-semibold d-block mb-3">

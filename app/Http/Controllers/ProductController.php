@@ -78,7 +78,50 @@ class ProductController extends Controller
     public function show(Product $product): View
     {
         $product->load(['category', 'translations']);
-        return view('pages.product.show', compact('product'));
+        
+        // Calculate financial analytics
+        // Get sold quantity and revenue (excluding cancelled invoices)
+        $soldData = \App\Models\InvoiceItem::where('item_id', $product->id)
+            ->whereHas('invoice', function($q) {
+                $q->whereNotIn('status', ['canceled', 'cancelled']);
+            })
+            ->selectRaw('SUM(quantity) as total_sold_qty, SUM(total) as total_revenue')
+            ->first();
+        
+        $soldQty = (int) ($soldData->total_sold_qty ?? 0);
+        $revenue = (float) ($soldData->total_revenue ?? 0);
+        
+        // Get bought quantity and total spent
+        $boughtData = \Illuminate\Support\Facades\DB::table('bill_items')
+            ->where('item_id', $product->id)
+            ->selectRaw('SUM(quantity) as total_bought_qty, SUM(total) as total_spent')
+            ->first();
+        
+        $boughtQty = (int) ($boughtData->total_bought_qty ?? 0);
+        $purchaseSpent = (float) ($boughtData->total_spent ?? 0);
+        
+        // Calculate metrics
+        $cogs = $soldQty * $product->purchase_price;
+        $realizedGrossProfit = $revenue - $cogs;
+        $avgActualSalePrice = $soldQty > 0 ? $revenue / $soldQty : 0;
+        $stockValueAtCost = $product->stock * $product->purchase_price;
+        $expectedRevenue = $product->stock * $product->sale_price;
+        $expectedProfit = $product->stock * ($product->sale_price - $product->purchase_price);
+        
+        $analytics = [
+            'stock_value_at_cost' => $stockValueAtCost,
+            'expected_revenue' => $expectedRevenue,
+            'expected_profit' => $expectedProfit,
+            'total_sold_qty' => $soldQty,
+            'total_revenue' => $revenue,
+            'cogs' => $cogs,
+            'realized_gross_profit' => $realizedGrossProfit,
+            'avg_actual_sale_price' => $avgActualSalePrice,
+            'total_bought_qty' => $boughtQty,
+            'total_purchase_spent' => $purchaseSpent,
+        ];
+        
+        return view('pages.product.show', compact('product', 'analytics'));
     }
 
     /**

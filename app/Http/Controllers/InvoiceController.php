@@ -232,6 +232,15 @@ class InvoiceController extends Controller
                 $lens['invoice_id'] = $invoice->id;
                 $lens['user_id'] = Auth::id();
                 InvoiceLens::create($lens);
+
+                // Decrease stock
+                $lensModel = Lens::find($lens['lens_id']);
+                if ($lensModel && method_exists($lensModel, 'decreaseStock')) {
+                    $lensModel->decreaseStock($lens['quantity'], [
+                        'description' => 'Invoice #' . $invoice->invoice_number,
+                        'reference' => $invoice,
+                    ]);
+                }
             }
 
             // Create payment transaction if paid
@@ -381,6 +390,17 @@ class InvoiceController extends Controller
                 }
             }
 
+            // Restore old stock for lenses
+            foreach ($invoice->lenses as $oldLens) {
+                $lens = Lens::find($oldLens->lens_id);
+                if ($lens && method_exists($lens, 'increaseStock')) {
+                    $lens->increaseStock($oldLens->quantity, [
+                        'description' => 'Invoice update - restore stock for #' . $invoice->invoice_number,
+                        'reference' => $invoice,
+                    ]);
+                }
+            }
+
             // Delete old items and lenses
             $invoice->items()->delete();
             $invoice->lenses()->delete();
@@ -406,6 +426,15 @@ class InvoiceController extends Controller
                 $lens['invoice_id'] = $invoice->id;
                 $lens['user_id'] = Auth::id();
                 InvoiceLens::create($lens);
+
+                // Decrease stock
+                $lensModel = Lens::find($lens['lens_id']);
+                if ($lensModel && method_exists($lensModel, 'decreaseStock')) {
+                    $lensModel->decreaseStock($lens['quantity'], [
+                        'description' => 'Invoice update #' . $invoice->invoice_number,
+                        'reference' => $invoice,
+                    ]);
+                }
             }
 
             // Update invoice
@@ -478,6 +507,17 @@ class InvoiceController extends Controller
                 $product = Product::find($item->item_id);
                 if ($product && method_exists($product, 'increaseStock')) {
                     $product->increaseStock($item->quantity, [
+                        'description' => 'Invoice cancelled #' . $invoice->invoice_number,
+                        'reference' => $invoice,
+                    ]);
+                }
+            }
+
+            // Restore stock for lenses
+            foreach ($invoice->lenses as $lens) {
+                $lensModel = Lens::find($lens->lens_id);
+                if ($lensModel && method_exists($lensModel, 'increaseStock')) {
+                    $lensModel->increaseStock($lens->quantity, [
                         'description' => 'Invoice cancelled #' . $invoice->invoice_number,
                         'reference' => $invoice,
                     ]);

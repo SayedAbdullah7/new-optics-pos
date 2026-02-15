@@ -56,6 +56,78 @@ class CategoryController extends Controller
     }
 
     /**
+     * Display the specified resource.
+     */
+    public function show(Category $category): View
+    {
+        $category->load(['products.category', 'products.translations']);
+
+        // Calculate category analytics
+        $products = $category->products;
+
+        $totalStock = 0;
+        $stockValueAtCost = 0;
+        $totalSoldQty = 0;
+        $totalRevenue = 0;
+        $totalBoughtQty = 0;
+        $totalPurchaseSpent = 0;
+        $totalCogs = 0;
+
+        foreach ($products as $product) {
+            $stock = $product->stock;
+            $totalStock += $stock;
+            $stockValueAtCost += $stock * $product->purchase_price;
+
+            // Get sold data for this product
+            $soldData = \App\Models\InvoiceItem::where('item_id', $product->id)
+                ->whereHas('invoice', function($q) {
+                    $q->whereNotIn('status', ['canceled', 'cancelled']);
+                })
+                ->selectRaw('SUM(quantity) as total_sold_qty, SUM(total) as total_revenue')
+                ->first();
+
+            $productSoldQty = (int) ($soldData->total_sold_qty ?? 0);
+            $totalSoldQty += $productSoldQty;
+            $totalRevenue += (float) ($soldData->total_revenue ?? 0);
+            $totalCogs += $productSoldQty * $product->purchase_price;
+
+            // Get bought data
+            $boughtData = \Illuminate\Support\Facades\DB::table('bill_items')
+                ->where('item_id', $product->id)
+                ->selectRaw('SUM(quantity) as total_bought_qty, SUM(total) as total_spent')
+                ->first();
+
+            $totalBoughtQty += (int) ($boughtData->total_bought_qty ?? 0);
+            $totalPurchaseSpent += (float) ($boughtData->total_spent ?? 0);
+        }
+
+        $realizedGrossProfit = $totalRevenue - $totalCogs;
+        $expectedRevenue = 0;
+        $expectedProfit = 0;
+
+        foreach ($products as $product) {
+            $expectedRevenue += $product->stock * $product->sale_price;
+            $expectedProfit += $product->stock * ($product->sale_price - $product->purchase_price);
+        }
+
+        $analytics = [
+            'total_products' => $products->count(),
+            'total_stock' => $totalStock,
+            'stock_value_at_cost' => $stockValueAtCost,
+            'expected_revenue' => $expectedRevenue,
+            'expected_profit' => $expectedProfit,
+            'total_sold_qty' => $totalSoldQty,
+            'total_revenue' => $totalRevenue,
+            'total_cogs' => $totalCogs,
+            'realized_gross_profit' => $realizedGrossProfit,
+            'total_bought_qty' => $totalBoughtQty,
+            'total_purchase_spent' => $totalPurchaseSpent,
+        ];
+
+        return view('pages.category.show', compact('category', 'analytics', 'products'));
+    }
+
+    /**
      * Show the form for editing the specified resource.
      */
     public function edit(Category $category): View
