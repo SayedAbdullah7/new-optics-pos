@@ -41,6 +41,26 @@ class LensCategoryDataTable extends BaseDataTable
     }
 
     /**
+     * Override applySearch to support brand_name and country_name search.
+     * This extends the base search functionality.
+     */
+    protected function applySearch($query): void
+    {
+        $search = request()->input('search.value');
+        if (!$search || strlen(trim($search)) < 2) {
+            return;
+        }
+
+        $searchTerm = '%' . trim($search) . '%';
+
+        // Search in brand_name and country_name
+        $query->orWhere(function ($q) use ($searchTerm) {
+            $q->where('brand_name', 'like', $searchTerm)
+              ->orWhere('country_name', 'like', $searchTerm);
+        });
+    }
+
+    /**
      * Handle the DataTable data processing.
      */
     public function handle()

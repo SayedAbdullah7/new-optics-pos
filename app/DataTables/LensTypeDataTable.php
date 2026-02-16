@@ -40,6 +40,25 @@ class LensTypeDataTable extends BaseDataTable
     }
 
     /**
+     * Override applySearch to support name search.
+     * This extends the base search functionality.
+     */
+    protected function applySearch($query): void
+    {
+        $search = request()->input('search.value');
+        if (!$search || strlen(trim($search)) < 2) {
+            return;
+        }
+
+        $searchTerm = '%' . trim($search) . '%';
+
+        // Search in name
+        $query->orWhere(function ($q) use ($searchTerm) {
+            $q->where('name', 'like', $searchTerm);
+        });
+    }
+
+    /**
      * Handle the DataTable data processing.
      */
     public function handle()
