@@ -21,6 +21,7 @@ class InvoiceItem extends Model
         'name',
         'quantity',
         'price',
+        'cost_price',
         'total',
         'discount',
         'tax',
@@ -32,6 +33,7 @@ class InvoiceItem extends Model
     protected $casts = [
         'quantity' => 'integer',
         'price' => 'decimal:2',
+        'cost_price' => 'decimal:4',
         'total' => 'decimal:2',
         'discount' => 'decimal:2',
         'tax' => 'decimal:2',
@@ -67,6 +69,14 @@ class InvoiceItem extends Model
     public function getTotalCalculatedAttribute(): float
     {
         return ($this->quantity * $this->price) - $this->discount + $this->tax;
+    }
+
+    /**
+     * Get profit for this item.
+     */
+    public function getProfitAttribute(): float
+    {
+        return ($this->price - $this->cost_price) * $this->quantity;
     }
 }
 

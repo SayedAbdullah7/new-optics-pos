@@ -17,7 +17,108 @@ class SystemUpdateController extends Controller
     {
         $messages = [];
 
-        // 1. Check and create bill_lenses table
+        // 1. Check and create inventory_ledger table
+        if (!Schema::hasTable('inventory_ledger')) {
+            try {
+                Schema::create('inventory_ledger', function (Blueprint $table) {
+                    $table->id();
+                    $table->string('stockable_type');              // Product or Lens
+                    $table->unsignedBigInteger('stockable_id');
+                    $table->enum('type', [
+                        'purchase', 'sale', 'purchase_return', 'sale_return', 'adjustment'
+                    ]);
+                    $table->integer('quantity');                    // +/- (positive=in, negative=out)
+                    $table->decimal('unit_cost', 15, 4);           // cost per unit at this transaction
+                    $table->decimal('total_cost', 15, 4);          // quantity * unit_cost
+                    $table->string('reference_type')->nullable();   // Bill, Invoice, etc.
+                    $table->unsignedBigInteger('reference_id')->nullable();
+                    $table->unsignedBigInteger('user_id')->nullable();
+                    $table->text('description')->nullable();
+                    $table->timestamps();
+
+                    $table->index(['stockable_type', 'stockable_id']);
+                    $table->index(['reference_type', 'reference_id']);
+                    $table->index('type');
+                });
+                $messages[] = 'Created table: inventory_ledger';
+            } catch (\Exception $e) {
+                $messages[] = 'Error creating inventory_ledger table: ' . $e->getMessage();
+            }
+        } else {
+            $messages[] = 'Table inventory_ledger already exists.';
+        }
+
+        // 2. Add cost_price to invoice_items and invoice_lenses
+        if (Schema::hasTable('invoice_items') && !Schema::hasColumn('invoice_items', 'cost_price')) {
+            try {
+                Schema::table('invoice_items', function (Blueprint $table) {
+                    $table->decimal('cost_price', 15, 4)->default(0)->after('price');
+                });
+                $messages[] = 'Added cost_price column to invoice_items';
+            } catch (\Exception $e) {
+                $messages[] = 'Error adding cost_price to invoice_items: ' . $e->getMessage();
+            }
+        } else {
+            if (Schema::hasColumn('invoice_items', 'cost_price')) {
+                $messages[] = 'Column cost_price already exists in invoice_items.';
+            } else {
+                $messages[] = 'Table invoice_items does not exist, skipping cost_price column.';
+            }
+        }
+
+        if (Schema::hasTable('invoice_lenses') && !Schema::hasColumn('invoice_lenses', 'cost_price')) {
+            try {
+                Schema::table('invoice_lenses', function (Blueprint $table) {
+                    $table->decimal('cost_price', 15, 4)->default(0)->after('price');
+                });
+                $messages[] = 'Added cost_price column to invoice_lenses';
+            } catch (\Exception $e) {
+                $messages[] = 'Error adding cost_price to invoice_lenses: ' . $e->getMessage();
+            }
+        } else {
+            if (Schema::hasColumn('invoice_lenses', 'cost_price')) {
+                $messages[] = 'Column cost_price already exists in invoice_lenses.';
+            } else {
+                $messages[] = 'Table invoice_lenses does not exist, skipping cost_price column.';
+            }
+        }
+
+        // 3. Add weighted_cost to products and lenses
+        if (Schema::hasTable('products') && !Schema::hasColumn('products', 'weighted_cost')) {
+            try {
+                Schema::table('products', function (Blueprint $table) {
+                    $table->decimal('weighted_cost', 15, 4)->default(0)->after('purchase_price');
+                });
+                $messages[] = 'Added weighted_cost column to products';
+            } catch (\Exception $e) {
+                $messages[] = 'Error adding weighted_cost to products: ' . $e->getMessage();
+            }
+        } else {
+            if (Schema::hasColumn('products', 'weighted_cost')) {
+                $messages[] = 'Column weighted_cost already exists in products.';
+            } else {
+                $messages[] = 'Table products does not exist, skipping weighted_cost column.';
+            }
+        }
+
+        if (Schema::hasTable('lenses') && !Schema::hasColumn('lenses', 'weighted_cost')) {
+            try {
+                Schema::table('lenses', function (Blueprint $table) {
+                    $table->decimal('weighted_cost', 15, 4)->default(0)->after('purchase_price');
+                });
+                $messages[] = 'Added weighted_cost column to lenses';
+            } catch (\Exception $e) {
+                $messages[] = 'Error adding weighted_cost to lenses: ' . $e->getMessage();
+            }
+        } else {
+            if (Schema::hasColumn('lenses', 'weighted_cost')) {
+                $messages[] = 'Column weighted_cost already exists in lenses.';
+            } else {
+                $messages[] = 'Table lenses does not exist, skipping weighted_cost column.';
+            }
+        }
+
+        // 4. Check and create bill_lenses table
         if (!Schema::hasTable('bill_lenses')) {
             try {
                 Schema::create('bill_lenses', function (Blueprint $table) {
@@ -62,7 +163,7 @@ class SystemUpdateController extends Controller
             $messages[] = 'Table bill_lenses already exists.';
         }
 
-        // 2. Sync Bill Stock (Historical Data)
+        // 5. Sync Bill Stock (Historical Data)
         // We run this to ensure old bills have their stock mutations created if missing
         try {
             Artisan::call('stock:sync-bills');

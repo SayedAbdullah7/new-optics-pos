@@ -23,36 +23,33 @@ class StockController extends Controller
             return $dataTable->handle();
         }
 
-        // Overall KPIs
+        // Overall KPIs - using aggregated queries
         $totalProducts = Product::count();
         $totalLenses = Lens::count();
 
-        // Get all products with their stock (using accessor)
-        $products = Product::with(['category', 'translations'])->get();
+        // Aggregate inventory metrics using cached stock and weighted_cost
+        $inventoryAggregates = Product::selectRaw('
+                SUM(stock) as total_stock_units,
+                SUM(stock * weighted_cost) as inventory_value_at_cost,
+                SUM(stock * sale_price) as inventory_value_at_retail,
+                SUM(CASE WHEN stock <= 0 THEN 1 ELSE 0 END) as out_of_stock_count,
+                SUM(CASE WHEN stock > 0 AND stock <= 10 THEN 1 ELSE 0 END) as low_stock_count
+            ')
+            ->first();
 
-        $totalStockUnits = 0;
-        $inventoryValueAtCost = 0;
-        $inventoryValueAtRetail = 0;
-        $lowStockCount = 0;
-        $outOfStockCount = 0;
-
-        foreach ($products as $product) {
-            $stock = $product->stock;
-            $totalStockUnits += $stock;
-            $inventoryValueAtCost += $stock * $product->purchase_price;
-            $inventoryValueAtRetail += $stock * $product->sale_price;
-
-            if ($stock <= 0) {
-                $outOfStockCount++;
-            } elseif ($stock <= 10) {
-                $lowStockCount++;
-            }
-        }
+        $totalStockUnits = (int) ($inventoryAggregates->total_stock_units ?? 0);
+        $inventoryValueAtCost = (float) ($inventoryAggregates->inventory_value_at_cost ?? 0);
+        $inventoryValueAtRetail = (float) ($inventoryAggregates->inventory_value_at_retail ?? 0);
+        $lowStockCount = (int) ($inventoryAggregates->low_stock_count ?? 0);
+        $outOfStockCount = (int) ($inventoryAggregates->out_of_stock_count ?? 0);
 
         $expectedProfit = $inventoryValueAtRetail - $inventoryValueAtCost;
         $expectedMarginPercent = $inventoryValueAtRetail > 0
             ? ($expectedProfit / $inventoryValueAtRetail) * 100
             : 0;
+
+        // Get all products with their stock (using accessor) for detailed analytics
+        $products = Product::with(['category', 'translations'])->get();
 
         $kpis = [
             'total_products' => $totalProducts,
@@ -66,34 +63,50 @@ class StockController extends Controller
             'out_of_stock_count' => $outOfStockCount,
         ];
 
-        // Per-Product Analytics
+        // Per-Product Analytics - using aggregated queries for better performance
+        $productIds = $products->pluck('id');
+        
+        // Aggregate sold data with real COGS from cost_price
+        $soldAggregates = InvoiceItem::whereIn('item_id', $productIds)
+            ->whereHas('invoice', function($q) {
+                $q->whereNotIn('status', ['canceled', 'cancelled']);
+            })
+            ->selectRaw('
+                item_id,
+                SUM(quantity) as total_sold_qty,
+                SUM(total) as total_revenue,
+                SUM(cost_price * quantity) as total_cogs
+            ')
+            ->groupBy('item_id')
+            ->get()
+            ->keyBy('item_id');
+
+        // Aggregate purchase data
+        $purchaseAggregates = DB::table('bill_items')
+            ->whereIn('item_id', $productIds)
+            ->selectRaw('
+                item_id,
+                SUM(quantity) as total_bought_qty,
+                SUM(total) as total_spent
+            ')
+            ->groupBy('item_id')
+            ->get()
+            ->keyBy('item_id');
+
         $productAnalytics = [];
         foreach ($products as $product) {
-            // Get sold quantity and revenue (excluding cancelled invoices)
-            $soldData = InvoiceItem::where('item_id', $product->id)
-                ->whereHas('invoice', function($q) {
-                    $q->whereNotIn('status', ['canceled', 'cancelled']);
-                })
-                ->selectRaw('SUM(quantity) as total_sold_qty, SUM(total) as total_revenue')
-                ->first();
+            $soldData = $soldAggregates->get($product->id);
+            $boughtData = $purchaseAggregates->get($product->id);
 
             $soldQty = (int) ($soldData->total_sold_qty ?? 0);
             $revenue = (float) ($soldData->total_revenue ?? 0);
-
-            // Get bought quantity and total spent
-            $boughtData = DB::table('bill_items')
-                ->where('item_id', $product->id)
-                ->selectRaw('SUM(quantity) as total_bought_qty, SUM(total) as total_spent')
-                ->first();
-
+            $cogs = (float) ($soldData->total_cogs ?? 0); // Real COGS from cost_price
             $boughtQty = (int) ($boughtData->total_bought_qty ?? 0);
             $purchaseSpent = (float) ($boughtData->total_spent ?? 0);
 
-            // Calculate metrics
-            $cogs = $soldQty * $product->purchase_price;
             $realizedProfit = $revenue - $cogs;
             $avgSalePrice = $soldQty > 0 ? $revenue / $soldQty : 0;
-            $stockValueAtCost = $product->stock * $product->purchase_price;
+            $stockValueAtCost = $product->stock * ($product->weighted_cost ?: $product->purchase_price);
 
             $productAnalytics[] = [
                 'product' => $product,
@@ -129,29 +142,19 @@ class StockController extends Controller
 
             foreach ($categoryProducts as $product) {
                 $categoryStock += $product->stock;
-                $categoryStockValueAtCost += $product->stock * $product->purchase_price;
+                $categoryStockValueAtCost += $product->stock * ($product->weighted_cost ?: $product->purchase_price);
 
-                // Get sold data for this product
-                $soldData = InvoiceItem::where('item_id', $product->id)
-                    ->whereHas('invoice', function($q) {
-                        $q->whereNotIn('status', ['canceled', 'cancelled']);
-                    })
-                    ->selectRaw('SUM(quantity) as total_sold_qty, SUM(total) as total_revenue')
-                    ->first();
-
+                // Get sold data for this product (using pre-aggregated data)
+                $soldData = $soldAggregates->get($product->id);
                 $productSoldQty = (int) ($soldData->total_sold_qty ?? 0);
                 $categorySoldQty += $productSoldQty;
                 $categoryRevenue += (float) ($soldData->total_revenue ?? 0);
 
-                // Calculate COGS for this product
-                $categoryCogs += $productSoldQty * $product->purchase_price;
+                // Calculate real COGS for this product from cost_price
+                $categoryCogs += (float) ($soldData->total_cogs ?? 0);
 
-                // Get bought data
-                $boughtData = DB::table('bill_items')
-                    ->where('item_id', $product->id)
-                    ->selectRaw('SUM(quantity) as total_bought_qty')
-                    ->first();
-
+                // Get bought data (using pre-aggregated data)
+                $boughtData = $purchaseAggregates->get($product->id);
                 $categoryBoughtQty += (int) ($boughtData->total_bought_qty ?? 0);
             }
 

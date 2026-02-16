@@ -24,6 +24,7 @@ class Lens extends Model
         'RangePower_id',
         'sale_price',
         'purchase_price',
+        'weighted_cost',
         'description',
     ];
 
@@ -33,6 +34,7 @@ class Lens extends Model
     protected $casts = [
         'sale_price' => 'decimal:2',
         'purchase_price' => 'decimal:2',
+        'weighted_cost' => 'decimal:4',
     ];
 
     /**
@@ -85,6 +87,14 @@ class Lens extends Model
         }
         
         return implode(' - ', $parts) ?: 'Lens #' . $this->id;
+    }
+
+    /**
+     * Get inventory ledger entries for this lens.
+     */
+    public function inventoryLedger()
+    {
+        return $this->morphMany(InventoryLedger::class, 'stockable');
     }
 }
 

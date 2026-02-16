@@ -15,6 +15,7 @@ use App\Models\LensType;
 use App\Models\Product;
 use App\Models\RangePower;
 use App\Models\Transaction;
+use App\Services\InventoryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -133,6 +134,7 @@ class InvoiceController extends Controller
         try {
             DB::beginTransaction();
 
+            $inventoryService = app(InventoryService::class);
             $data = $request->validated();
             $data['user_id'] = Auth::id();
             $data['invoice_number'] = $data['invoice_number'] ?? Invoice::generateInvoiceNumber();
@@ -213,34 +215,46 @@ class InvoiceController extends Controller
 
             // Create invoice items
             foreach ($items as $item) {
+                $product = Product::find($item['item_id']);
+                if (!$product) continue;
+
+                // Get current WAC for cost_price
+                $costPrice = $inventoryService->getWAC($product);
+
                 $item['invoice_id'] = $invoice->id;
                 $item['user_id'] = Auth::id();
+                $item['cost_price'] = $costPrice;
                 InvoiceItem::create($item);
 
-                // Decrease stock
-                $product = Product::find($item['item_id']);
-                if ($product && method_exists($product, 'decreaseStock')) {
-                    $product->decreaseStock($item['quantity'], [
-                        'description' => 'Invoice #' . $invoice->invoice_number,
-                        'reference' => $invoice,
-                    ]);
-                }
+                // Handle inventory sale
+                $inventoryService->handleSale(
+                    $product,
+                    (int) $item['quantity'],
+                    $invoice,
+                    'Invoice #' . $invoice->invoice_number
+                );
             }
 
             // Create invoice lenses
             foreach ($lenses as $lens) {
+                $lensModel = Lens::find($lens['lens_id']);
+                if (!$lensModel) continue;
+
+                // Get current WAC for cost_price
+                $costPrice = $inventoryService->getWAC($lensModel);
+
                 $lens['invoice_id'] = $invoice->id;
                 $lens['user_id'] = Auth::id();
+                $lens['cost_price'] = $costPrice;
                 InvoiceLens::create($lens);
 
-                // Decrease stock
-                $lensModel = Lens::find($lens['lens_id']);
-                if ($lensModel && method_exists($lensModel, 'decreaseStock')) {
-                    $lensModel->decreaseStock($lens['quantity'], [
-                        'description' => 'Invoice #' . $invoice->invoice_number,
-                        'reference' => $invoice,
-                    ]);
-                }
+                // Handle inventory sale for lens
+                $inventoryService->handleSale(
+                    $lensModel,
+                    (int) $lens['quantity'],
+                    $invoice,
+                    'Invoice #' . $invoice->invoice_number
+                );
             }
 
             // Create payment transaction if paid
@@ -316,6 +330,7 @@ class InvoiceController extends Controller
         try {
             DB::beginTransaction();
 
+            $inventoryService = app(InventoryService::class);
             $data = $request->validated();
 
             // Calculate totals from items
@@ -379,25 +394,31 @@ class InvoiceController extends Controller
             // Set calculated amount
             $data['amount'] = $productsAmount + $lensesAmount;
 
-            // Restore old stock before updating items
+            // Restore old stock (sale return) before updating items
             foreach ($invoice->items as $oldItem) {
                 $product = Product::find($oldItem->item_id);
-                if ($product && method_exists($product, 'increaseStock')) {
-                    $product->increaseStock($oldItem->quantity, [
-                        'description' => 'Invoice update - restore stock for #' . $invoice->invoice_number,
-                        'reference' => $invoice,
-                    ]);
+                if ($product) {
+                    $inventoryService->handleSaleReturn(
+                        $product,
+                        (int) $oldItem->quantity,
+                        (float) ($oldItem->cost_price ?? $product->weighted_cost ?? $product->purchase_price),
+                        $invoice,
+                        'Invoice update - restore stock for #' . $invoice->invoice_number
+                    );
                 }
             }
 
-            // Restore old stock for lenses
+            // Restore old stock for lenses (sale return)
             foreach ($invoice->lenses as $oldLens) {
                 $lens = Lens::find($oldLens->lens_id);
-                if ($lens && method_exists($lens, 'increaseStock')) {
-                    $lens->increaseStock($oldLens->quantity, [
-                        'description' => 'Invoice update - restore stock for #' . $invoice->invoice_number,
-                        'reference' => $invoice,
-                    ]);
+                if ($lens) {
+                    $inventoryService->handleSaleReturn(
+                        $lens,
+                        (int) $oldLens->quantity,
+                        (float) ($oldLens->cost_price ?? $lens->weighted_cost ?? $lens->purchase_price),
+                        $invoice,
+                        'Invoice update - restore stock for #' . $invoice->invoice_number
+                    );
                 }
             }
 
@@ -407,34 +428,46 @@ class InvoiceController extends Controller
 
             // Create new invoice items
             foreach ($items as $item) {
+                $product = Product::find($item['item_id']);
+                if (!$product) continue;
+
+                // Get current WAC for cost_price
+                $costPrice = $inventoryService->getWAC($product);
+
                 $item['invoice_id'] = $invoice->id;
                 $item['user_id'] = Auth::id();
+                $item['cost_price'] = $costPrice;
                 InvoiceItem::create($item);
 
-                // Decrease stock
-                $product = Product::find($item['item_id']);
-                if ($product && method_exists($product, 'decreaseStock')) {
-                    $product->decreaseStock($item['quantity'], [
-                        'description' => 'Invoice update #' . $invoice->invoice_number,
-                        'reference' => $invoice,
-                    ]);
-                }
+                // Handle inventory sale
+                $inventoryService->handleSale(
+                    $product,
+                    (int) $item['quantity'],
+                    $invoice,
+                    'Invoice update #' . $invoice->invoice_number
+                );
             }
 
             // Create new invoice lenses
             foreach ($lenses as $lens) {
+                $lensModel = Lens::find($lens['lens_id']);
+                if (!$lensModel) continue;
+
+                // Get current WAC for cost_price
+                $costPrice = $inventoryService->getWAC($lensModel);
+
                 $lens['invoice_id'] = $invoice->id;
                 $lens['user_id'] = Auth::id();
+                $lens['cost_price'] = $costPrice;
                 InvoiceLens::create($lens);
 
-                // Decrease stock
-                $lensModel = Lens::find($lens['lens_id']);
-                if ($lensModel && method_exists($lensModel, 'decreaseStock')) {
-                    $lensModel->decreaseStock($lens['quantity'], [
-                        'description' => 'Invoice update #' . $invoice->invoice_number,
-                        'reference' => $invoice,
-                    ]);
-                }
+                // Handle inventory sale for lens
+                $inventoryService->handleSale(
+                    $lensModel,
+                    (int) $lens['quantity'],
+                    $invoice,
+                    'Invoice update #' . $invoice->invoice_number
+                );
             }
 
             // Update invoice
@@ -472,6 +505,7 @@ class InvoiceController extends Controller
 
             DB::beginTransaction();
 
+            $inventoryService = app(InventoryService::class);
             $now = Carbon::now();
 
             // Create cancellation invoice with negative amount
@@ -502,25 +536,31 @@ class InvoiceController extends Controller
                 ]);
             }
 
-            // Restore stock for items
+            // Restore stock for items (sale return using original cost_price)
             foreach ($invoice->items as $item) {
                 $product = Product::find($item->item_id);
-                if ($product && method_exists($product, 'increaseStock')) {
-                    $product->increaseStock($item->quantity, [
-                        'description' => 'Invoice cancelled #' . $invoice->invoice_number,
-                        'reference' => $invoice,
-                    ]);
+                if ($product) {
+                    $inventoryService->handleSaleReturn(
+                        $product,
+                        (int) $item->quantity,
+                        (float) ($item->cost_price ?? $product->weighted_cost ?? $product->purchase_price),
+                        $invoice,
+                        'Invoice cancelled #' . $invoice->invoice_number
+                    );
                 }
             }
 
-            // Restore stock for lenses
+            // Restore stock for lenses (sale return using original cost_price)
             foreach ($invoice->lenses as $lens) {
                 $lensModel = Lens::find($lens->lens_id);
-                if ($lensModel && method_exists($lensModel, 'increaseStock')) {
-                    $lensModel->increaseStock($lens->quantity, [
-                        'description' => 'Invoice cancelled #' . $invoice->invoice_number,
-                        'reference' => $invoice,
-                    ]);
+                if ($lensModel) {
+                    $inventoryService->handleSaleReturn(
+                        $lensModel,
+                        (int) $lens->quantity,
+                        (float) ($lens->cost_price ?? $lensModel->weighted_cost ?? $lensModel->purchase_price),
+                        $invoice,
+                        'Invoice cancelled #' . $invoice->invoice_number
+                    );
                 }
             }
 

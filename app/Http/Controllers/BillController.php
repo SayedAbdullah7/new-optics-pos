@@ -15,6 +15,7 @@ use App\Models\Product;
 use App\Models\RangePower;
 use App\Models\Transaction;
 use App\Models\Vendor;
+use App\Services\InventoryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -122,6 +123,7 @@ class BillController extends Controller
         try {
             DB::beginTransaction();
 
+            $inventoryService = app(InventoryService::class);
             $data = $request->validated();
             $data['user_id'] = Auth::id();
             $data['bill_number'] = $data['bill_number'] ?? Bill::generateBillNumber();
@@ -205,13 +207,16 @@ class BillController extends Controller
                 $item['bill_id'] = $bill->id;
                 BillItem::create($item);
 
-                // Increase stock
+                // Handle inventory purchase
                 $product = Product::find($item['item_id']);
-                if ($product && method_exists($product, 'increaseStock')) {
-                    $product->increaseStock($item['quantity'], [
-                        'description' => 'Bill #' . $bill->bill_number,
-                        'reference' => $bill,
-                    ]);
+                if ($product) {
+                    $inventoryService->handlePurchase(
+                        $product,
+                        (int) $item['quantity'],
+                        (float) $item['price'],
+                        $bill,
+                        'Bill #' . $bill->bill_number
+                    );
                 }
             }
 
@@ -220,13 +225,16 @@ class BillController extends Controller
                 $lens['bill_id'] = $bill->id;
                 BillLens::create($lens);
 
-                // Increase lens stock
+                // Handle inventory purchase for lens
                 $lensModel = Lens::find($lens['lens_id']);
-                if ($lensModel && method_exists($lensModel, 'increaseStock')) {
-                    $lensModel->increaseStock($lens['quantity'], [
-                        'description' => 'Bill #' . $bill->bill_number,
-                        'reference' => $bill,
-                    ]);
+                if ($lensModel) {
+                    $inventoryService->handlePurchase(
+                        $lensModel,
+                        (int) $lens['quantity'],
+                        (float) $lens['price'],
+                        $bill,
+                        'Bill #' . $bill->bill_number
+                    );
                 }
             }
 
@@ -293,6 +301,7 @@ class BillController extends Controller
         try {
             DB::beginTransaction();
 
+            $inventoryService = app(InventoryService::class);
             $data = $request->validated();
 
             // Calculate totals from items
@@ -356,25 +365,31 @@ class BillController extends Controller
             // Set calculated amount
             $data['amount'] = $productsAmount + $lensesAmount;
 
-            // Restore old stock for products
+            // Restore old stock for products (purchase return)
             foreach ($bill->items as $oldItem) {
                 $product = Product::find($oldItem->item_id);
-                if ($product && method_exists($product, 'decreaseStock')) {
-                    $product->decreaseStock($oldItem->quantity, [
-                        'description' => 'Bill update - restore stock for #' . $bill->bill_number,
-                        'reference' => $bill,
-                    ]);
+                if ($product) {
+                    $inventoryService->handlePurchaseReturn(
+                        $product,
+                        (int) $oldItem->quantity,
+                        (float) $oldItem->price,
+                        $bill,
+                        'Bill update - restore stock for #' . $bill->bill_number
+                    );
                 }
             }
 
-            // Restore old stock for lenses
+            // Restore old stock for lenses (purchase return)
             foreach ($bill->lenses as $oldLens) {
                 $lens = Lens::find($oldLens->lens_id);
-                if ($lens && method_exists($lens, 'decreaseStock')) {
-                    $lens->decreaseStock($oldLens->quantity, [
-                        'description' => 'Bill update - restore stock for #' . $bill->bill_number,
-                        'reference' => $bill,
-                    ]);
+                if ($lens) {
+                    $inventoryService->handlePurchaseReturn(
+                        $lens,
+                        (int) $oldLens->quantity,
+                        (float) $oldLens->price,
+                        $bill,
+                        'Bill update - restore stock for #' . $bill->bill_number
+                    );
                 }
             }
 
@@ -387,13 +402,16 @@ class BillController extends Controller
                 $item['bill_id'] = $bill->id;
                 BillItem::create($item);
 
-                // Increase stock
+                // Handle inventory purchase
                 $product = Product::find($item['item_id']);
-                if ($product && method_exists($product, 'increaseStock')) {
-                    $product->increaseStock($item['quantity'], [
-                        'description' => 'Bill update #' . $bill->bill_number,
-                        'reference' => $bill,
-                    ]);
+                if ($product) {
+                    $inventoryService->handlePurchase(
+                        $product,
+                        (int) $item['quantity'],
+                        (float) $item['price'],
+                        $bill,
+                        'Bill update #' . $bill->bill_number
+                    );
                 }
             }
 
@@ -402,13 +420,16 @@ class BillController extends Controller
                 $lens['bill_id'] = $bill->id;
                 BillLens::create($lens);
 
-                // Increase stock
+                // Handle inventory purchase for lens
                 $lensModel = Lens::find($lens['lens_id']);
-                if ($lensModel && method_exists($lensModel, 'increaseStock')) {
-                    $lensModel->increaseStock($lens['quantity'], [
-                        'description' => 'Bill update #' . $bill->bill_number,
-                        'reference' => $bill,
-                    ]);
+                if ($lensModel) {
+                    $inventoryService->handlePurchase(
+                        $lensModel,
+                        (int) $lens['quantity'],
+                        (float) $lens['price'],
+                        $bill,
+                        'Bill update #' . $bill->bill_number
+                    );
                 }
             }
 
@@ -436,6 +457,8 @@ class BillController extends Controller
         try {
             DB::beginTransaction();
 
+            $inventoryService = app(InventoryService::class);
+
             // Calculate total transactions amount
             $amount = 0;
             foreach ($bill->transactions as $transaction) {
@@ -455,25 +478,31 @@ class BillController extends Controller
                 ]);
             }
 
-            // Decrease stock for items
+            // Handle purchase return for items
             foreach ($bill->items as $item) {
                 $product = Product::find($item->item_id);
-                if ($product && method_exists($product, 'decreaseStock')) {
-                    $product->decreaseStock($item->quantity, [
-                        'description' => 'Bill deleted #' . $bill->bill_number,
-                        'reference' => $bill,
-                    ]);
+                if ($product) {
+                    $inventoryService->handlePurchaseReturn(
+                        $product,
+                        (int) $item->quantity,
+                        (float) $item->price,
+                        $bill,
+                        'Bill deleted #' . $bill->bill_number
+                    );
                 }
             }
 
-            // Decrease stock for lenses
+            // Handle purchase return for lenses
             foreach ($bill->lenses as $lens) {
                 $lensModel = Lens::find($lens->lens_id);
-                if ($lensModel && method_exists($lensModel, 'decreaseStock')) {
-                    $lensModel->decreaseStock($lens->quantity, [
-                        'description' => 'Bill deleted #' . $bill->bill_number,
-                        'reference' => $bill,
-                    ]);
+                if ($lensModel) {
+                    $inventoryService->handlePurchaseReturn(
+                        $lensModel,
+                        (int) $lens->quantity,
+                        (float) $lens->price,
+                        $bill,
+                        'Bill deleted #' . $bill->bill_number
+                    );
                 }
             }
 

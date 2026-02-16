@@ -20,6 +20,7 @@ class InvoiceLens extends Model
         'user_id',
         'name',
         'price',
+        'cost_price',
         'quantity',
         'total',
     ];
@@ -29,6 +30,7 @@ class InvoiceLens extends Model
      */
     protected $casts = [
         'price' => 'decimal:2',
+        'cost_price' => 'decimal:4',
         'quantity' => 'integer',
         'total' => 'decimal:2',
     ];

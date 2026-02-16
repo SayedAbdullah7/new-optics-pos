@@ -31,6 +31,7 @@ class Product extends Model implements TranslatableContract
         'purchase_price',
         'sale_price',
         'stock',
+        'weighted_cost',
         'image',
     ];
 
@@ -46,6 +47,7 @@ class Product extends Model implements TranslatableContract
         'purchase_price' => 'decimal:2',
         'sale_price' => 'decimal:2',
         'stock' => 'integer',
+        'weighted_cost' => 'decimal:4',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -124,24 +126,36 @@ class Product extends Model implements TranslatableContract
     }
 
     /**
-     * Get stock attribute: base stock from DB + stock from HasStock mutations.
-     * Override HasStock's getStockAttribute to combine base stock with mutations.
+     * Get stock attribute: uses cached stock column for performance.
+     * The inventory_ledger table is the source of truth.
      *
      * @param mixed $value The raw stock value from database
-     * @return int Combined stock (base + mutations)
+     * @return int Cached stock value
      */
     public function getStockAttribute($value)
     {
-        // Get base stock from database column ($value is the raw DB value)
-        $baseStock = (int) ($value ?? 0);
+        // Return cached stock from database column
+        // This is updated by InventoryService after each transaction
+        return (int) ($value ?? 0);
+    }
 
-        // Call HasStock's stock() method to get mutations stock
-        // stock() method from HasStock trait calculates from stockMutations
-        // We need to bypass the accessor to avoid infinite loop, so we call the relationship directly
-        $mutationsStock = (int) $this->stockMutations()->sum('amount');
+    /**
+     * Get stock from ledger (source of truth) - for verification.
+     * Use this method when you need to verify stock accuracy.
+     *
+     * @return int Stock calculated from inventory_ledger
+     */
+    public function getStockFromLedger(): int
+    {
+        return (int) $this->inventoryLedger()->sum('quantity');
+    }
 
-        // Return combined stock: base stock from DB + stock mutations
-        return $baseStock + $mutationsStock;
+    /**
+     * Get inventory ledger entries for this product.
+     */
+    public function inventoryLedger()
+    {
+        return $this->morphMany(InventoryLedger::class, 'stockable');
     }
 
     /**
