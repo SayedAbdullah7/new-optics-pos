@@ -11,6 +11,12 @@ use Yajra\DataTables\Facades\DataTables;
 class TransactionDataTable extends BaseDataTable
 {
     /**
+     * Define searchable relations for the query.
+     * These columns will be searched in related models.
+     */
+    protected array $searchableRelations = [];
+
+    /**
      * Get the columns for the DataTable.
      */
     public function columns(): array
@@ -20,7 +26,7 @@ class TransactionDataTable extends BaseDataTable
             Column::create('type')->setTitle('Type'),
             Column::create('amount')->setTitle('Amount'),
             Column::create('payment_method')->setTitle('Payment Method'),
-            Column::create('account_name')->setTitle('Account')->setName('account.name'),
+            Column::create('account_name')->setTitle('Account')->setName('account.name')->setSearchable(false),
             Column::create('reference')->setTitle('Reference'),
             Column::create('paid_at')->setTitle('Date'),
             Column::create('action')->setTitle('Actions')->setSearchable(false)->setOrderable(false),
@@ -84,7 +90,7 @@ class TransactionDataTable extends BaseDataTable
             })
             ->filter(function ($query) {
                 $this->applySearch($query);
-                $this->applyFilters($query);
+                $this->applyFilters($query); // Auto-apply all filters
             }, true)
             ->rawColumns(['action', 'type', 'amount', 'account_name'])
             ->make(true);

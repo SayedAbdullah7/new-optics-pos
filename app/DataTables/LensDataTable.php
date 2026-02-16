@@ -10,7 +10,8 @@ use Yajra\DataTables\Facades\DataTables;
 class LensDataTable extends BaseDataTable
 {
     /**
-     * Define searchable relations (relation => columns).
+     * Define searchable relations for the query.
+     * These columns will be searched in related models.
      */
     protected array $searchableRelations = [
         'category' => ['name', 'brand_name'],
@@ -98,7 +99,7 @@ class LensDataTable extends BaseDataTable
             })
             ->filter(function ($query) {
                 $this->applySearch($query);
-                $this->applyFilters($query);
+                $this->applyFilters($query); // Auto-apply all filters
             }, true)
             ->rawColumns(['action', 'range_power', 'type', 'category', 'sale_price', 'purchase_price'])
             ->make(true);

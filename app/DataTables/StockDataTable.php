@@ -55,17 +55,18 @@ class StockDataTable extends BaseDataTable
 
     /**
      * Override applySearch to support product name search.
+     * This extends the base search functionality to handle translatable models.
      */
     protected function applySearch($query): void
     {
         $search = request()->input('search.value');
-        if (!$search || strlen(trim($search)) < 1) {
+        if (!$search || strlen(trim($search)) < 2) {
             return;
         }
 
         $searchTerm = '%' . trim($search) . '%';
 
-        $query->where(function ($q) use ($searchTerm) {
+        $query->orWhere(function ($q) use ($searchTerm) {
             $q->where('description', 'like', $searchTerm)
               ->orWhere('amount', 'like', $searchTerm)
               ->orWhere(function ($subQ) use ($searchTerm) {
@@ -179,7 +180,7 @@ class StockDataTable extends BaseDataTable
             })
             ->filter(function ($query) {
                 $this->applySearch($query);
-                $this->applyFilters($query);
+                $this->applyFilters($query); // Auto-apply all filters
             }, true)
             ->orderColumn('created_at', 'created_at $1')
             ->rawColumns(['product_name', 'reference', 'stock_after', 'amount', 'description'])

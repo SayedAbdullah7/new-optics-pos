@@ -12,7 +12,8 @@ use Yajra\DataTables\Facades\DataTables;
 class InvoiceReportDataTable extends BaseDataTable
 {
     /**
-     * Define searchable relations.
+     * Define searchable relations for the query.
+     * These columns will be searched in related models.
      */
     protected array $searchableRelations = [
         'client' => ['name'],
@@ -25,7 +26,7 @@ class InvoiceReportDataTable extends BaseDataTable
     {
         return [
             Column::create('id')->setOrderable(true),
-            Column::create('client_name')->setTitle('Name')->setName('client.name'),
+            Column::create('client_name')->setTitle('Name')->setName('client.name')->setSearchable(false),
             Column::create('invoice_number')->setTitle('Number'),
             Column::create('amount')->setTitle('Amount'),
             Column::create('paid')->setTitle('Paid')->setSearchable(false)->setOrderable(false),
@@ -86,26 +87,26 @@ class InvoiceReportDataTable extends BaseDataTable
             })
             ->filter(function ($query) {
                 $this->applySearch($query);
-                $this->applyFilters($query);
-            }, true)
-            ->filter(function ($query) {
-                $this->applySearch($query);
-                $this->applyFilters($query);
+                $this->applyFilters($query); // Auto-apply all filters
             }, true)
             ->rawColumns(['client_name', 'invoice_number', 'amount', 'paid', 'remaining', 'notes'])
             ->make(true);
     }
 
+    /**
+     * Override applySearch to support client name search.
+     * This extends the base search functionality.
+     */
     protected function applySearch($query): void
     {
         $search = request()->input('search.value');
-        if (!$search || strlen(trim($search)) < 1) {
+        if (!$search || strlen(trim($search)) < 2) {
             return;
         }
 
         $searchTerm = '%' . trim($search) . '%';
 
-        $query->where(function ($q) use ($searchTerm) {
+        $query->orWhere(function ($q) use ($searchTerm) {
             $q->where('invoice_number', 'like', $searchTerm)
               ->orWhere('amount', 'like', $searchTerm)
               ->orWhereHas('client', function ($clientQuery) use ($searchTerm) {

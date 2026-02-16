@@ -10,7 +10,8 @@ use Yajra\DataTables\Facades\DataTables;
 class LensCategoryDataTable extends BaseDataTable
 {
     /**
-     * Define searchable relations (relation => columns).
+     * Define searchable relations for the query.
+     * These columns will be searched in related models.
      */
     protected array $searchableRelations = [];
 
@@ -21,7 +22,7 @@ class LensCategoryDataTable extends BaseDataTable
     {
         return [
             Column::create('id')->setOrderable(true),
-            Column::create('brand_name')->setTitle('Brand Name'),
+            Column::create('brand_name')->setTitle('Brand Name')->setSearchable(false),
             Column::create('country_name')->setTitle('Country')->setSearchable(false),
             Column::create('lenses_count')->setTitle('Lenses Count')->setSearchable(false)->setOrderable(false),
             Column::create('created_at')->setTitle('Created')->setVisible(false),
@@ -71,7 +72,7 @@ class LensCategoryDataTable extends BaseDataTable
             })
             ->filter(function ($query) {
                 $this->applySearch($query);
-                $this->applyFilters($query);
+                $this->applyFilters($query); // Auto-apply all filters
             }, true)
             ->rawColumns(['action', 'lenses_count', 'country_name'])
             ->make(true);

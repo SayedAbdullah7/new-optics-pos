@@ -10,6 +10,12 @@ use Yajra\DataTables\Facades\DataTables;
 class ExpenseDataTable extends BaseDataTable
 {
     /**
+     * Define searchable relations for the query.
+     * These columns will be searched in related models.
+     */
+    protected array $searchableRelations = [];
+
+    /**
      * Get the columns for the DataTable.
      */
     public function columns(): array
@@ -66,7 +72,7 @@ class ExpenseDataTable extends BaseDataTable
             })
             ->filter(function ($query) {
                 $this->applySearch($query);
-                $this->applyFilters($query);
+                $this->applyFilters($query); // Auto-apply all filters
             }, true)
             ->rawColumns(['action', 'amount', 'description', 'category'])
             ->make(true);

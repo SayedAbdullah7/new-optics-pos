@@ -10,16 +10,23 @@ use Yajra\DataTables\Facades\DataTables;
 class CategoryDataTable extends BaseDataTable
 {
     /**
+     * Define searchable relations for the query.
+     * These columns will be searched in related models.
+     * Note: For translated fields, we handle them in applySearch method.
+     */
+    protected array $searchableRelations = [];
+
+    /**
      * Get the columns for the DataTable.
      */
     public function columns(): array
     {
         return [
             Column::create('id')->setOrderable(true),
-            Column::create('name')->setTitle('Category Name'),
-            Column::create('description')->setTitle('Description'),
+            Column::create('name')->setTitle('Category Name')->setSearchable(false),
+            Column::create('description')->setTitle('Description')->setSearchable(false),
             Column::create('products_count')->setTitle('Products')->setSearchable(false)->setOrderable(false),
-            Column::create('is_active')->setTitle('Status'),
+            // Column::create('is_active')->setTitle('Status'),
             Column::create('created_at')->setTitle('Created')->setVisible(false),
             Column::create('action')->setTitle('Actions')->setSearchable(false)->setOrderable(false),
         ];
@@ -30,12 +37,27 @@ class CategoryDataTable extends BaseDataTable
      */
     public function filters(): array
     {
-        return [
-            'is_active' => Filter::select('Status', [
-                '1' => 'Active',
-                '0' => 'Inactive'
-            ]),
-        ];
+        return [];
+    }
+
+    /**
+     * Override applySearch to support translated fields in main model.
+     * This extends the base search functionality to handle translatable models.
+     */
+    protected function applySearch($query): void
+    {
+        $search = request()->input('search.value');
+        if (!$search || strlen(trim($search)) < 2) {
+            return;
+        }
+
+        $searchTerm = '%' . trim($search) . '%';
+
+        // Search in translated fields of the main model (Category)
+        $query->orWhere(function ($q) use ($searchTerm) {
+            // Search in category name (translated)
+            $q->whereTranslationLike('name', $searchTerm);
+        });
     }
 
     /**
@@ -48,11 +70,6 @@ class CategoryDataTable extends BaseDataTable
         return DataTables::of($query)
             ->addColumn('action', function ($model) {
                 return view('pages.category.columns._actions', compact('model'))->render();
-            })
-            ->editColumn('is_active', function ($model) {
-                return $model->is_active
-                    ? '<span class="badge bg-success">Active</span>'
-                    : '<span class="badge bg-danger">Inactive</span>';
             })
             ->editColumn('products_count', function ($model) {
                 return '<span class="badge bg-info">' . $model->products_count . '</span>';
@@ -67,9 +84,9 @@ class CategoryDataTable extends BaseDataTable
             })
             ->filter(function ($query) {
                 $this->applySearch($query);
-                $this->applyFilters($query);
+                $this->applyFilters($query); // Auto-apply all filters
             }, true)
-            ->rawColumns(['action', 'is_active', 'products_count', 'description'])
+            ->rawColumns(['action', 'products_count', 'description'])
             ->make(true);
     }
 }

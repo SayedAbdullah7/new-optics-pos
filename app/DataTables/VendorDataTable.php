@@ -10,6 +10,12 @@ use Yajra\DataTables\Facades\DataTables;
 class VendorDataTable extends BaseDataTable
 {
     /**
+     * Define searchable relations for the query.
+     * These columns will be searched in related models.
+     */
+    protected array $searchableRelations = [];
+
+    /**
      * Get the columns for the DataTable.
      */
     public function columns(): array
@@ -58,7 +64,7 @@ class VendorDataTable extends BaseDataTable
             })
             ->filter(function ($query) {
                 $this->applySearch($query);
-                $this->applyFilters($query);
+                $this->applyFilters($query); // Auto-apply all filters
             }, true)
             ->rawColumns(['action', 'phone', 'address', 'bills_count'])
             ->make(true);

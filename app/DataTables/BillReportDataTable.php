@@ -12,7 +12,8 @@ use Yajra\DataTables\Facades\DataTables;
 class BillReportDataTable extends BaseDataTable
 {
     /**
-     * Define searchable relations.
+     * Define searchable relations for the query.
+     * These columns will be searched in related models.
      */
     protected array $searchableRelations = [
         'vendor' => ['name'],
@@ -25,7 +26,7 @@ class BillReportDataTable extends BaseDataTable
     {
         return [
             Column::create('id')->setOrderable(true),
-            Column::create('vendor_name')->setTitle('Name')->setName('vendor.name'),
+            Column::create('vendor_name')->setTitle('Name')->setName('vendor.name')->setSearchable(false),
             Column::create('bill_number')->setTitle('Number'),
             Column::create('amount')->setTitle('Amount'),
             Column::create('paid')->setTitle('Paid')->setSearchable(false)->setOrderable(false),
@@ -74,26 +75,26 @@ class BillReportDataTable extends BaseDataTable
             })
             ->filter(function ($query) {
                 $this->applySearch($query);
-                $this->applyFilters($query);
-            }, true)
-            ->filter(function ($query) {
-                $this->applySearch($query);
-                $this->applyFilters($query);
+                $this->applyFilters($query); // Auto-apply all filters
             }, true)
             ->rawColumns(['vendor_name', 'bill_number', 'amount', 'paid', 'balance'])
             ->make(true);
     }
 
+    /**
+     * Override applySearch to support vendor name search.
+     * This extends the base search functionality.
+     */
     protected function applySearch($query): void
     {
         $search = request()->input('search.value');
-        if (!$search || strlen(trim($search)) < 1) {
+        if (!$search || strlen(trim($search)) < 2) {
             return;
         }
 
         $searchTerm = '%' . trim($search) . '%';
 
-        $query->where(function ($q) use ($searchTerm) {
+        $query->orWhere(function ($q) use ($searchTerm) {
             $q->where('bill_number', 'like', $searchTerm)
               ->orWhere('amount', 'like', $searchTerm)
               ->orWhereHas('vendor', function ($vendorQuery) use ($searchTerm) {

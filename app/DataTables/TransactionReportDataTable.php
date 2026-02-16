@@ -13,19 +13,25 @@ use Yajra\DataTables\Facades\DataTables;
 class TransactionReportDataTable extends BaseDataTable
 {
     /**
+     * Define searchable relations for the query.
+     * These columns will be searched in related models.
+     */
+    protected array $searchableRelations = [];
+
+    /**
      * Get the columns for the DataTable.
      */
     public function columns(): array
     {
         return [
             Column::create('id')->setOrderable(true),
-            Column::create('name')->setTitle('Name')->setOrderable(false),
-            Column::create('number')->setTitle('Number')->setOrderable(false),
+            Column::create('name')->setTitle('Name')->setOrderable(false)->setSearchable(false),
+            Column::create('number')->setTitle('Number')->setOrderable(false)->setSearchable(false),
             Column::create('type')->setTitle('Type'),
             Column::create('category')->setTitle('Category'),
             Column::create('amount')->setTitle('Amount'),
-            Column::create('remaining')->setTitle('Remaining')->setOrderable(false),
-            Column::create('account_name')->setTitle('Account')->setOrderable(false),
+            Column::create('remaining')->setTitle('Remaining')->setOrderable(false)->setSearchable(false),
+            Column::create('account_name')->setTitle('Account')->setOrderable(false)->setSearchable(false),
             Column::create('notes')->setTitle('Notes')->setOrderable(false),
             Column::create('paid_at')->setTitle('Date'),
             Column::create('action')->setTitle('Actions')->setSearchable(false)->setOrderable(false),
@@ -162,22 +168,26 @@ class TransactionReportDataTable extends BaseDataTable
             })
             ->filter(function ($query) {
                 $this->applySearch($query);
-                $this->applyFilters($query);
+                $this->applyFilters($query); // Auto-apply all filters
             }, true)
             ->rawColumns(['name', 'number', 'type', 'category', 'amount', 'remaining', 'account_name', 'notes', 'paid_at', 'action'])
             ->make(true);
     }
 
+    /**
+     * Override applySearch to support complex search across relations.
+     * This extends the base search functionality.
+     */
     protected function applySearch($query): void
     {
         $search = request()->input('search.value');
-        if (!$search || strlen(trim($search)) < 1) {
+        if (!$search || strlen(trim($search)) < 2) {
             return;
         }
 
         $searchTerm = '%' . trim($search) . '%';
 
-        $query->where(function ($q) use ($searchTerm) {
+        $query->orWhere(function ($q) use ($searchTerm) {
             $q->where('amount', 'like', $searchTerm)
               ->orWhere('description', 'like', $searchTerm)
               ->orWhereHas('invoice.client', function ($clientQuery) use ($searchTerm) {

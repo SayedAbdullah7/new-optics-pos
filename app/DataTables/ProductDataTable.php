@@ -11,11 +11,11 @@ use Yajra\DataTables\Facades\DataTables;
 class ProductDataTable extends BaseDataTable
 {
     /**
-     * Define searchable relations.
+     * Define searchable relations for the query.
+     * These columns will be searched in related models.
+     * Note: For translated fields, we handle them in applySearch method.
      */
-    protected array $searchableRelations = [
-        'category' => ['name'],
-    ];
+    protected array $searchableRelations = [];
 
     /**
      * Get the columns for the DataTable.
@@ -24,8 +24,8 @@ class ProductDataTable extends BaseDataTable
     {
         return [
             Column::create('id')->setOrderable(true),
-            Column::create('name')->setTitle('Product Name'),
-            Column::create('category_name')->setTitle('Category')->setName('category.name'),
+            Column::create('name')->setTitle('Product Name')->setSearchable(false),
+            Column::create('category_name')->setTitle('Category')->setName('category.name')->setSearchable(false),
             Column::create('purchase_price')->setTitle('Purchase Price'),
             Column::create('sale_price')->setTitle('Sale Price'),
             Column::create('stock')->setTitle('Stock'),
@@ -69,31 +69,32 @@ class ProductDataTable extends BaseDataTable
     }
 
     /**
-     * Override applySearch to support translated fields.
+     * Override applySearch to support translated fields in main model and relations.
+     * This extends the base search functionality to handle translatable models.
      */
     protected function applySearch($query): void
     {
         $search = request()->input('search.value');
-        if (!$search || strlen(trim($search)) < 1) {
+        if (!$search || strlen(trim($search)) < 2) {
             return;
         }
 
-        $searchTerm = trim($search);
+        $searchTerm = '%' . trim($search) . '%';
 
-        // Search in translated fields using whereTranslationLike
-        $query->where(function ($q) use ($searchTerm) {
+        // Search in translated fields of the main model (Product)
+        // and other non-relation fields like item_code
+        $query->orWhere(function ($q) use ($searchTerm) {
             // Search in product name (translated)
-            $q->whereTranslationLike('name', '%' . $searchTerm . '%')
-              ->orWhereTranslationLike('description', '%' . $searchTerm . '%')
+            $q->whereTranslationLike('name', $searchTerm)
+              ->orWhereTranslationLike('description', $searchTerm)
               // Search in item_code
-              ->orWhere('item_code', 'like', '%' . $searchTerm . '%')
-              // Search in prices
-              ->orWhere('purchase_price', 'like', '%' . $searchTerm . '%')
-              ->orWhere('sale_price', 'like', '%' . $searchTerm . '%')
-              // Search in category name (translated)
-              ->orWhereHas('category', function ($catQuery) use ($searchTerm) {
-                  $catQuery->whereTranslationLike('name', '%' . $searchTerm . '%');
-              });
+              ->orWhere('item_code', 'like', $searchTerm);
+        });
+
+        // Handle searchableRelations with translation support
+        // Search in category name (translated)
+        $query->orWhereHas('category', function ($catQuery) use ($searchTerm) {
+            $catQuery->whereTranslationLike('name', $searchTerm);
         });
     }
 
@@ -131,7 +132,7 @@ class ProductDataTable extends BaseDataTable
             })
             ->filter(function ($query) {
                 $this->applySearch($query);
-                $this->applyFilters($query);
+                $this->applyFilters($query); // Auto-apply all filters
             }, true)
             ->rawColumns(['action', 'stock', 'category_name'])
             ->make(true);

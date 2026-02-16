@@ -11,7 +11,8 @@ use Yajra\DataTables\Facades\DataTables;
 class BillDataTable extends BaseDataTable
 {
     /**
-     * Define searchable relations.
+     * Define searchable relations for the query.
+     * These columns will be searched in related models.
      */
     protected array $searchableRelations = [
         'vendor' => ['name'],
@@ -25,7 +26,7 @@ class BillDataTable extends BaseDataTable
         return [
             Column::create('id')->setOrderable(true),
             Column::create('bill_number')->setTitle('Bill #'),
-            Column::create('vendor_name')->setTitle('Vendor')->setName('vendor.name'),
+            Column::create('vendor_name')->setTitle('Vendor')->setName('vendor.name')->setSearchable(false),
             Column::create('amount')->setTitle('Amount'),
             Column::create('paid')->setTitle('Paid')->setSearchable(false)->setOrderable(false),
             Column::create('balance')->setTitle('Balance')->setSearchable(false)->setOrderable(false),
@@ -91,7 +92,7 @@ class BillDataTable extends BaseDataTable
             })
             ->filter(function ($query) {
                 $this->applySearch($query);
-                $this->applyFilters($query);
+                $this->applyFilters($query); // Auto-apply all filters
             }, true)
             ->rawColumns(['action', 'vendor_name', 'status', 'balance'])
             ->make(true);
