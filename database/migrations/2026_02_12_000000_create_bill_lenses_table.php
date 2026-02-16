@@ -13,20 +13,16 @@ return new class extends Migration
     {
         Schema::create('bill_lenses', function (Blueprint $table) {
             $table->id();
-
-            // Try to match standard integer type (commonly used in older Laravel apps)
-            // If this fails during migration, change to foreignId() or unsignedBigInteger()
             $table->unsignedInteger('bill_id');
-            $table->foreign('bill_id')->references('id')->on('bills')->onDelete('cascade');
-
             $table->unsignedInteger('lens_id');
-            $table->foreign('lens_id')->references('id')->on('lenses')->onDelete('cascade');
-
             $table->string('name')->nullable();
             $table->integer('quantity')->default(1);
             $table->decimal('price', 15, 2)->default(0);
             $table->decimal('total', 15, 2)->default(0);
             $table->timestamps();
+
+            $table->foreign('bill_id')->references('id')->on('bills')->onDelete('cascade');
+            $table->foreign('lens_id')->references('id')->on('lenses')->onDelete('cascade');
         });
     }
 
