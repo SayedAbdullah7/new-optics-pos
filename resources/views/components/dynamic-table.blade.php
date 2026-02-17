@@ -133,10 +133,16 @@
         <!--end::Menu 1-->
         <!--end::Filter-->
         @if(isset($createUrl) && $createUrl)
-            <button type="button" class="btn btn-primary has_action text-capitalize" data-type="create"
-                    data-action="{{ $createUrl }}">
-                <i class="ki-duotone ki-plus fs-2"></i>create new
-            </button>
+            @if(isset($createAsLink) && $createAsLink)
+                <a href="{{ $createUrl }}" class="btn btn-primary text-capitalize">
+                    <i class="ki-duotone ki-plus fs-2"></i>{{ $createLinkText ?? 'create new' }}
+                </a>
+            @else
+                <button type="button" class="btn btn-primary has_action text-capitalize" data-type="create"
+                        data-action="{{ $createUrl }}">
+                    <i class="ki-duotone ki-plus fs-2"></i>create new
+                </button>
+            @endif
         @endif
         <!--end::Add user-->
     </x-slot>

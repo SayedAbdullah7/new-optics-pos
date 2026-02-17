@@ -17,6 +17,8 @@ use App\Http\Controllers\LensTypeController;
 use App\Http\Controllers\LensCategoryController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\SystemUpdateController;
+use App\Http\Controllers\LensPowerPresetController;
+use App\Http\Controllers\MultiSelectTableController;
 
 /*
 |--------------------------------------------------------------------------
@@ -105,6 +107,20 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
 
     // System Updates
     Route::get('/system/update', [SystemUpdateController::class, 'update'])->name('system.update');
+
+    // Lens Power Presets (list + modal create/edit name)
+    Route::get('/lens-power-presets', [MultiSelectTableController::class, 'presetsIndex'])->name('lens-power-presets.index');
+    Route::get('/lens-power-presets/create', [LensPowerPresetController::class, 'create'])->name('lens-power-presets.create');
+    Route::post('/lens-power-presets', [LensPowerPresetController::class, 'store'])->name('lens-power-presets.store');
+    Route::get('/lens-power-presets/{lens_power_preset}/edit', [LensPowerPresetController::class, 'edit'])->name('lens-power-presets.edit');
+    Route::put('/lens-power-presets/{lens_power_preset}', [LensPowerPresetController::class, 'update'])->name('lens-power-presets.update');
+
+    // Multi-Select Table (Lens Power Grid — تحديث القيم only)
+    Route::get('/multi-select-table', [MultiSelectTableController::class, 'index'])->name('multi-select-table.index');
+    Route::get('/multi-select-table/search', [MultiSelectTableController::class, 'search'])->name('multi-select-table.search');
+    Route::post('/multi-select-table/save', [MultiSelectTableController::class, 'store'])->name('multi-select-table.store');
+    Route::put('/multi-select-table/{preset}', [MultiSelectTableController::class, 'update'])->name('multi-select-table.update');
+    Route::delete('/multi-select-table/{preset}', [MultiSelectTableController::class, 'destroy'])->name('multi-select-table.destroy');
 
 });
 

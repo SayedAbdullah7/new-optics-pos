@@ -18,6 +18,8 @@ class DynamicTable extends Component
     public $filters;
     public $createUrl;
     public $tableType;
+    public $createAsLink;
+    public $createLinkText;
 
     /**
      * Create a new component instance.
@@ -31,9 +33,13 @@ class DynamicTable extends Component
         $ajaxUrl = null,
         $filters = [],
         $createUrl = null,
-        $tableType = null
+        $tableType = null,
+        $createAsLink = false,
+        $createLinkText = null
     ) {
         $this->createUrl = $createUrl;
+        $this->createAsLink = $createAsLink;
+        $this->createLinkText = $createLinkText;
         $this->tableId = $tableId ?? 'data_table';
         $this->columns = $columns;
         $this->actions = $actions;

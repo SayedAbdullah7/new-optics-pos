@@ -205,6 +205,21 @@
                     </div>
                     <!--end:Menu item-->
 
+                    <!--begin:Menu item - Lens Power Presets-->
+                    <div class="menu-item">
+                        <a class="menu-link {{ Route::is('admin.lens-power-presets.*') || Route::is('admin.multi-select-table*') ? 'active' : '' }}"
+                           href="{{ route('admin.lens-power-presets.index') }}">
+                            <span class="menu-icon">
+                                <i class="ki-duotone ki-grid fs-2">
+                                    <span class="path1"></span>
+                                    <span class="path2"></span>
+                                </i>
+                            </span>
+                            <span class="menu-title">محفوظات قوى العدسات</span>
+                        </a>
+                    </div>
+                    <!--end:Menu item-->
+
                     <!--begin:Menu item - Section Header-->
                     <div class="menu-item pt-5">
                         <div class="menu-content">
