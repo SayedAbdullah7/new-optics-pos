@@ -25,8 +25,8 @@ class ProductDataTable extends BaseDataTable
         return [
             Column::create('id')->setOrderable(true),
             Column::create('item_code')->setTitle('Item Code'),
-            Column::create('name')->setTitle('Product Name'),
-            Column::create('category_name')->setTitle('Category')->setName('category.name'),
+            Column::create('name')->setTitle('Product Name')->setSearchable(false),
+            Column::create('category_name')->setTitle('Category')->setName('category.name')->setSearchable(false),
             Column::create('purchase_price')->setTitle('Purchase Price'),
             Column::create('sale_price')->setTitle('Sale Price'),
             Column::create('stock')->setTitle('Stock'),
