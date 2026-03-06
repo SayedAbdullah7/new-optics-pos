@@ -1,26 +1,12 @@
 <div class="d-flex justify-content-end gap-2">
-    <!-- View Button -->
-    @can('read-lenses')
-    <a href="{{ route('admin.lenses.show', $model->id) }}"
-       class="btn btn-icon btn-light-info btn-sm"
-       data-bs-toggle="tooltip"
-       title="View lens">
-        <i class="ki-duotone ki-eye fs-5">
-            <span class="path1"></span>
-            <span class="path2"></span>
-            <span class="path3"></span>
-        </i>
-    </a>
-    @endcan
-
     <!-- Edit Button -->
-    @can('update-lenses')
+    @can('update-users')
     <a href="#"
        class="btn btn-icon btn-light-warning btn-sm has_action"
        data-type="edit"
-       data-action="{{ route('admin.lenses.edit', $model->id) }}"
+       data-action="{{ route('admin.users.edit', $model->id) }}"
        data-bs-toggle="tooltip"
-       title="Edit lens">
+       title="Edit user">
         <i class="ki-duotone ki-pencil fs-5">
             <span class="path1"></span>
             <span class="path2"></span>
@@ -29,12 +15,13 @@
     @endcan
 
     <!-- Delete Button -->
-    @can('delete-lenses')
+    @can('delete-users')
+    @if($model->id !== auth()->id())
     <a href="#"
        class="btn btn-icon btn-light-danger btn-sm delete_btn"
-       data-action="{{ route('admin.lenses.destroy', $model->id) }}"
+       data-action="{{ route('admin.users.destroy', $model->id) }}"
        data-bs-toggle="tooltip"
-       title="Delete lens">
+       title="Delete user">
         <i class="ki-duotone ki-trash fs-5">
             <span class="path1"></span>
             <span class="path2"></span>
@@ -43,5 +30,6 @@
             <span class="path5"></span>
         </i>
     </a>
+    @endif
     @endcan
 </div>

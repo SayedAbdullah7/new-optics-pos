@@ -3,7 +3,7 @@
         table-id="lenses_table"
         :columns="$columns"
         :filters="$filters"
-        :create-url="route('admin.lenses.create')"
+        :create-url="auth()->user()->can('create-lenses') ? route('admin.lenses.create') : null"
         :show-checkbox="false"
     />
 </x-app-layout>

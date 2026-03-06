@@ -3,7 +3,7 @@
         table-id="lens_brands_table"
         :columns="$columns"
         :filters="$filters"
-        :create-url="route('admin.lens-brands.create')"
+        :create-url="auth()->user()->can('create-lens-brands') ? route('admin.lens-brands.create') : null"
         :show-checkbox="false"
     />
 </x-app-layout>

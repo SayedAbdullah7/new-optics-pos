@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\DataTables\LensPowerPresetDataTable;
-use App\Models\LensPowerPreset;
+use App\DataTables\RangePowerDataTable;
+use App\Models\RangePower;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -11,22 +11,22 @@ use Illuminate\View\View;
 class MultiSelectTableController extends Controller
 {
     /**
-     * List all lens power presets (index page).
+     * List all range powers (index page).
      */
-    public function presetsIndex(LensPowerPresetDataTable $dataTable, Request $request): JsonResponse|View
+    public function presetsIndex(RangePowerDataTable $dataTable, Request $request): JsonResponse|View
     {
         if ($request->ajax()) {
             return $dataTable->handle();
         }
 
-        return view('pages.lens-power-presets.index', [
+        return view('pages.range-power.index', [
             'columns' => $dataTable->columns(),
             'filters' => $dataTable->filters(),
         ]);
     }
 
     /**
-     * Display the lens power range table view (create or edit when preset is set).
+     * Display the lens power range table view (create or edit when range_power is set).
      */
     public function index(Request $request): View
     {
@@ -45,10 +45,10 @@ class MultiSelectTableController extends Controller
             $cylValues[] = round($cyl, 2);
         }
 
-        $presets = LensPowerPreset::orderBy('name')->get();
+        $presets = RangePower::orderBy('name')->get();
         $preset = null;
         if ($request->filled('preset')) {
-            $preset = LensPowerPreset::with('values')->find($request->input('preset'));
+            $preset = RangePower::with('values')->find($request->input('preset'));
         }
 
         return view('pages.multi-select-table.form', compact(
@@ -64,7 +64,7 @@ class MultiSelectTableController extends Controller
     }
 
     /**
-     * Save current selection as a new preset.
+     * Save current selection as a new range power.
      */
     public function store(Request $request): JsonResponse
     {
@@ -75,10 +75,6 @@ class MultiSelectTableController extends Controller
             'values.*.cyl' => 'required|numeric',
         ]);
 
-        $preset = LensPowerPreset::create([
-            'name' => $request->input('name'),
-        ]);
-
         $values = array_map(function ($item) {
             return [
                 'sph' => round((float) $item['sph'], 2),
@@ -86,19 +82,42 @@ class MultiSelectTableController extends Controller
             ];
         }, $request->input('values'));
 
-        $preset->values()->createMany($values);
+        $minSph = $maxSph = $minCyl = $maxCyl = $minTotal = $maxTotal = 0;
+        if (!empty($values)) {
+            $sphs = array_column($values, 'sph');
+            $cyls = array_column($values, 'cyl');
+            $totals = array_map(fn ($v) => $v['sph'] + $v['cyl'], $values);
+            $minSph = min($sphs);
+            $maxSph = max($sphs);
+            $minCyl = min($cyls);
+            $maxCyl = max($cyls);
+            $minTotal = min($totals);
+            $maxTotal = max($totals);
+        }
+
+        $range = RangePower::create([
+            'name' => $request->input('name'),
+            'max_sph' => $maxSph,
+            'min_sph' => $minSph,
+            'max_cyl' => $maxCyl,
+            'min_cyl' => $minCyl,
+            'max_total' => $maxTotal,
+            'min_total' => $minTotal,
+        ]);
+
+        $range->values()->createMany($values);
 
         return response()->json([
             'status' => true,
             'message' => __('تم الحفظ بنجاح'),
-            'data' => ['id' => $preset->id, 'name' => $preset->name],
+            'data' => ['id' => $range->id, 'name' => $range->name],
         ]);
     }
 
     /**
-     * Update an existing preset with current selection.
+     * Update an existing range power with current selection.
      */
-    public function update(Request $request, LensPowerPreset $preset): JsonResponse
+    public function update(Request $request, RangePower $range_power): JsonResponse
     {
         $request->validate([
             'name' => 'sometimes|string|max:255',
@@ -108,10 +127,8 @@ class MultiSelectTableController extends Controller
         ]);
 
         if ($request->has('name')) {
-            $preset->update(['name' => $request->input('name')]);
+            $range_power->update(['name' => $request->input('name')]);
         }
-
-        $preset->values()->delete();
 
         $values = array_map(function ($item) {
             return [
@@ -120,17 +137,40 @@ class MultiSelectTableController extends Controller
             ];
         }, $request->input('values'));
 
-        $preset->values()->createMany($values);
+        $minSph = $maxSph = $minCyl = $maxCyl = $minTotal = $maxTotal = 0;
+        if (!empty($values)) {
+            $sphs = array_column($values, 'sph');
+            $cyls = array_column($values, 'cyl');
+            $totals = array_map(fn ($v) => $v['sph'] + $v['cyl'], $values);
+            $minSph = min($sphs);
+            $maxSph = max($sphs);
+            $minCyl = min($cyls);
+            $maxCyl = max($cyls);
+            $minTotal = min($totals);
+            $maxTotal = max($totals);
+        }
+
+        $range_power->update([
+            'max_sph' => $maxSph,
+            'min_sph' => $minSph,
+            'max_cyl' => $maxCyl,
+            'min_cyl' => $minCyl,
+            'max_total' => $maxTotal,
+            'min_total' => $minTotal,
+        ]);
+
+        $range_power->values()->delete();
+        $range_power->values()->createMany($values);
 
         return response()->json([
             'status' => true,
             'message' => __('تم التحديث بنجاح'),
-            'data' => ['id' => $preset->id, 'name' => $preset->name],
+            'data' => ['id' => $range_power->id, 'name' => $range_power->name],
         ]);
     }
 
     /**
-     * Search presets that contain the given SPH + CYL combination.
+     * Search range powers that contain the given SPH + CYL combination.
      */
     public function search(Request $request): JsonResponse
     {
@@ -142,7 +182,7 @@ class MultiSelectTableController extends Controller
         $sph = round((float) $request->input('sph'), 2);
         $cyl = round((float) $request->input('cyl'), 2);
 
-        $presets = LensPowerPreset::query()
+        $presets = RangePower::query()
             ->whereHas('values', function ($q) use ($sph, $cyl) {
                 $q->where('sph', $sph)->where('cyl', $cyl);
             })
@@ -156,11 +196,11 @@ class MultiSelectTableController extends Controller
     }
 
     /**
-     * Delete a preset.
+     * Delete a range power.
      */
-    public function destroy(LensPowerPreset $preset): JsonResponse
+    public function destroy(RangePower $range_power): JsonResponse
     {
-        $preset->delete();
+        $range_power->delete();
         return response()->json([
             'status' => true,
             'message' => __('تم الحذف بنجاح'),

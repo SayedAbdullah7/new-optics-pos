@@ -3,7 +3,7 @@
         table-id="bills_table"
         :columns="$columns"
         :filters="$filters"
-        :create-url="route('admin.bills.create')"
+        :create-url="auth()->user()->can('create-bills') ? route('admin.bills.create') : null"
         :show-checkbox="false"
     />
 </x-app-layout>

@@ -15,11 +15,17 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        // Seed permissions first, then roles
+        $this->call([
+            PermissionUpdateSeeder::class,
+            RoleSeeder::class,
+        ]);
 
-        User::factory()->create([
+        // User::factory(10)->create();
+        $user = User::factory()->create([
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+        $user->syncRoles(['super_admin']);
     }
 }

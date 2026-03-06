@@ -1,5 +1,6 @@
 <div class="d-flex justify-content-end gap-2">
     <!-- View Button -->
+    @can('read-lens-brands')
     <a href="{{ route('admin.lens-brands.show', ['lens_category' => $model->id]) }}"
        class="btn btn-icon btn-light-info btn-sm"
        data-bs-toggle="tooltip"
@@ -10,8 +11,10 @@
             <span class="path3"></span>
         </i>
     </a>
+    @endcan
 
     <!-- Edit Button -->
+    @can('update-lens-brands')
     <a href="#"
        class="btn btn-icon btn-light-warning btn-sm has_action"
        data-type="edit"
@@ -23,8 +26,10 @@
             <span class="path2"></span>
         </i>
     </a>
+    @endcan
 
     <!-- Delete Button -->
+    @can('delete-lens-brands')
     <a href="#"
        class="btn btn-icon btn-light-danger btn-sm delete_btn"
        data-action="{{ route('admin.lens-brands.destroy', ['lens_category' => $model->id]) }}"
@@ -38,4 +43,5 @@
             <span class="path5"></span>
         </i>
     </a>
+    @endcan
 </div>

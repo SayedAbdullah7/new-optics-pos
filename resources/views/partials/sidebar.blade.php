@@ -63,6 +63,7 @@
                     <!--end:Menu item-->
 
                     <!--begin:Menu item - Clients-->
+                    @can('read-clients')
                     <div class="menu-item">
                         <a class="menu-link {{ Route::is('admin.clients.*') ? 'active' : '' }}"
                            href="{{ route('admin.clients.index') }}">
@@ -78,9 +79,11 @@
                             <span class="menu-title">Clients</span>
                         </a>
                     </div>
+                    @endcan
                     <!--end:Menu item-->
 
                     <!--begin:Menu item - Invoices-->
+                    @can('read-invoices')
                     <div class="menu-item">
                         <a class="menu-link {{ Route::is('admin.invoices.*') ? 'active' : '' }}"
                            href="{{ route('admin.invoices.index') }}">
@@ -97,6 +100,7 @@
                             <span class="menu-title">Invoices</span>
                         </a>
                     </div>
+                    @endcan
                     <!--end:Menu item-->
 
                     <!--begin:Menu item - Section Header-->
@@ -108,6 +112,7 @@
                     <!--end:Menu item-->
 
                     <!--begin:Menu item - Categories-->
+                    @can('read-categories')
                     <div class="menu-item">
                         <a class="menu-link {{ Route::is('admin.categories.*') ? 'active' : '' }}"
                            href="{{ route('admin.categories.index') }}">
@@ -122,9 +127,11 @@
                             <span class="menu-title">Categories</span>
                         </a>
                     </div>
+                    @endcan
                     <!--end:Menu item-->
 
                     <!--begin:Menu item - Products-->
+                    @can('read-products')
                     <div class="menu-item">
                         <a class="menu-link {{ Route::is('admin.products.*') ? 'active' : '' }}"
                            href="{{ route('admin.products.index') }}">
@@ -138,9 +145,11 @@
                             <span class="menu-title">Products</span>
                         </a>
                     </div>
+                    @endcan
                     <!--end:Menu item-->
 
                     <!--begin:Menu item - Stock-->
+                    @can('read-stock')
                     <div class="menu-item">
                         <a class="menu-link {{ Route::is('admin.stock.*') ? 'active' : '' }}"
                            href="{{ route('admin.stock.index') }}">
@@ -155,9 +164,11 @@
                             <span class="menu-title">Stock</span>
                         </a>
                     </div>
+                    @endcan
                     <!--end:Menu item-->
 
                     <!--begin:Menu item - Lenses-->
+                    @can('read-lenses')
                     <div class="menu-item">
                         <a class="menu-link {{ Route::is('admin.lenses.*') ? 'active' : '' }}"
                            href="{{ route('admin.lenses.index') }}">
@@ -171,9 +182,11 @@
                             <span class="menu-title">Lenses</span>
                         </a>
                     </div>
+                    @endcan
                     <!--end:Menu item-->
 
                     <!--begin:Menu item - Lens Types-->
+                    @can('read-lens-types')
                     <div class="menu-item">
                         <a class="menu-link {{ Route::is('admin.lens-types.*') ? 'active' : '' }}"
                            href="{{ route('admin.lens-types.index') }}">
@@ -188,9 +201,11 @@
                             <span class="menu-title">Lens Types</span>
                         </a>
                     </div>
+                    @endcan
                     <!--end:Menu item-->
 
                     <!--begin:Menu item - Lens Brands-->
+                    @can('read-lens-brands')
                     <div class="menu-item">
                         <a class="menu-link {{ Route::is('admin.lens-brands.*') ? 'active' : '' }}"
                            href="{{ route('admin.lens-brands.index') }}">
@@ -203,21 +218,24 @@
                             <span class="menu-title">Lens Brands</span>
                         </a>
                     </div>
+                    @endcan
                     <!--end:Menu item-->
 
                     <!--begin:Menu item - Lens Power Presets-->
+                    @can('read-range-powers')
                     <div class="menu-item">
-                        <a class="menu-link {{ Route::is('admin.lens-power-presets.*') || Route::is('admin.multi-select-table*') ? 'active' : '' }}"
-                           href="{{ route('admin.lens-power-presets.index') }}">
+                        <a class="menu-link {{ Route::is('admin.range-powers.*') || Route::is('admin.multi-select-table*') ? 'active' : '' }}"
+                           href="{{ route('admin.range-powers.index') }}">
                             <span class="menu-icon">
                                 <i class="ki-duotone ki-grid fs-2">
                                     <span class="path1"></span>
                                     <span class="path2"></span>
                                 </i>
                             </span>
-                            <span class="menu-title">محفوظات قوى العدسات</span>
+                            <span class="menu-title">Range Powers</span>
                         </a>
                     </div>
+                    @endcan
                     <!--end:Menu item-->
 
                     <!--begin:Menu item - Section Header-->
@@ -229,6 +247,7 @@
                     <!--end:Menu item-->
 
                     <!--begin:Menu item - Vendors-->
+                    @can('read-vendors')
                     <div class="menu-item">
                         <a class="menu-link {{ Route::is('admin.vendors.*') ? 'active' : '' }}"
                            href="{{ route('admin.vendors.index') }}">
@@ -244,9 +263,11 @@
                             <span class="menu-title">Vendors</span>
                         </a>
                     </div>
+                    @endcan
                     <!--end:Menu item-->
 
                     <!--begin:Menu item - Bills-->
+                    @can('read-bills')
                     <div class="menu-item">
                         <a class="menu-link {{ Route::is('admin.bills.*') ? 'active' : '' }}"
                            href="{{ route('admin.bills.index') }}">
@@ -259,6 +280,7 @@
                             <span class="menu-title">Bills</span>
                         </a>
                     </div>
+                    @endcan
                     <!--end:Menu item-->
 
                     <!--begin:Menu item - Section Header-->
@@ -270,6 +292,7 @@
                     <!--end:Menu item-->
 
                     <!--begin:Menu item - Transactions-->
+                    @can('read-transactions')
                     <div class="menu-item">
                         <a class="menu-link {{ Route::is('admin.transactions.*') ? 'active' : '' }}"
                            href="{{ route('admin.transactions.index') }}">
@@ -283,9 +306,11 @@
                             <span class="menu-title">Transactions</span>
                         </a>
                     </div>
+                    @endcan
                     <!--end:Menu item-->
 
                     <!--begin:Menu item - Expenses-->
+                    @can('read-expenses')
                     <div class="menu-item">
                         <a class="menu-link {{ Route::is('admin.expenses.*') ? 'active' : '' }}"
                            href="{{ route('admin.expenses.index') }}">
@@ -300,6 +325,49 @@
                             <span class="menu-title">Expenses</span>
                         </a>
                     </div>
+                    @endcan
+                    <!--end:Menu item-->
+
+                    <!--begin:Menu item - Section Header-->
+                    <div class="menu-item pt-5">
+                        <div class="menu-content">
+                            <span class="menu-heading fw-bold text-uppercase fs-7">Administration</span>
+                        </div>
+                    </div>
+                    <!--end:Menu item-->
+
+                    <!--begin:Menu item - Users-->
+                    @can('read-users')
+                    <div class="menu-item">
+                        <a class="menu-link {{ Route::is('admin.users.*') ? 'active' : '' }}"
+                           href="{{ route('admin.users.index') }}">
+                            <span class="menu-icon">
+                                <i class="ki-duotone ki-user fs-2">
+                                    <span class="path1"></span>
+                                    <span class="path2"></span>
+                                </i>
+                            </span>
+                            <span class="menu-title">Users Management</span>
+                        </a>
+                    </div>
+                    @endcan
+                    <!--end:Menu item-->
+
+                    <!--begin:Menu item - Roles-->
+                    @can('read-roles')
+                    <div class="menu-item">
+                        <a class="menu-link {{ Route::is('admin.roles.*') ? 'active' : '' }}"
+                           href="{{ route('admin.roles.index') }}">
+                            <span class="menu-icon">
+                                <i class="ki-duotone ki-security-user fs-2">
+                                    <span class="path1"></span>
+                                    <span class="path2"></span>
+                                </i>
+                            </span>
+                            <span class="menu-title">Roles & Permissions</span>
+                        </a>
+                    </div>
+                    @endcan
                     <!--end:Menu item-->
 
                 </div>
