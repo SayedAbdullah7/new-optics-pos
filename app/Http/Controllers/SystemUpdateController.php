@@ -17,6 +17,9 @@ class SystemUpdateController extends Controller
     {
         $messages = [];
 
+        // 0. Migrate Laratrust to Spatie Permission tables (if needed)
+        $messages = array_merge($messages, $this->migrateLaratrustToSpatiePermissionTables());
+
         // 1. Check and create inventory_ledger table
         if (!Schema::hasTable('inventory_ledger')) {
             try {
@@ -177,5 +180,150 @@ class SystemUpdateController extends Controller
             'status' => true,
             'messages' => $messages
         ]);
+    }
+
+    /**
+     * Migrate from Laratrust to Spatie Laravel Permission structure.
+     * - Adds guard_name to existing roles & permissions.
+     * - Creates model_has_roles, model_has_permissions, role_has_permissions.
+     * - Migrates data from role_user, permission_user, permission_role.
+     * - Drops old Laratrust pivot tables.
+     *
+     * @return array<string> Messages about what was done.
+     */
+    protected function migrateLaratrustToSpatiePermissionTables(): array
+    {
+        $messages = [];
+        $guard = 'web';
+
+        try {
+            // 1. Add guard_name to roles (Spatie requires it)
+            if (Schema::hasTable('roles') && !Schema::hasColumn('roles', 'guard_name')) {
+                Schema::table('roles', function (Blueprint $table) use ($guard) {
+                    $table->string('guard_name', 125)->default($guard)->after('name');
+                });
+                DB::table('roles')->whereNull('guard_name')->update(['guard_name' => $guard]);
+                Schema::table('roles', function (Blueprint $table) {
+                    $table->dropUnique(['name']);
+                    $table->unique(['name', 'guard_name']);
+                });
+                $messages[] = 'Added guard_name to roles and updated unique key.';
+            }
+
+            // 2. Add guard_name to permissions
+            if (Schema::hasTable('permissions') && !Schema::hasColumn('permissions', 'guard_name')) {
+                Schema::table('permissions', function (Blueprint $table) use ($guard) {
+                    $table->string('guard_name', 125)->default($guard)->after('name');
+                });
+                DB::table('permissions')->whereNull('guard_name')->update(['guard_name' => $guard]);
+                Schema::table('permissions', function (Blueprint $table) {
+                    $table->dropUnique(['name']);
+                    $table->unique(['name', 'guard_name']);
+                });
+                $messages[] = 'Added guard_name to permissions and updated unique key.';
+            }
+
+            // 3. Create Spatie pivot tables
+            if (Schema::hasTable('roles') && Schema::hasTable('permissions') && !Schema::hasTable('role_has_permissions')) {
+                Schema::create('role_has_permissions', function (Blueprint $table) {
+                    $table->unsignedInteger('permission_id');
+                    $table->unsignedInteger('role_id');
+                    $table->foreign('permission_id')->references('id')->on('permissions')->onDelete('cascade');
+                    $table->foreign('role_id')->references('id')->on('roles')->onDelete('cascade');
+                    $table->primary(['permission_id', 'role_id']);
+                });
+                $messages[] = 'Created table: role_has_permissions';
+            }
+
+            if (Schema::hasTable('roles') && !Schema::hasTable('model_has_roles')) {
+                Schema::create('model_has_roles', function (Blueprint $table) {
+                    $table->unsignedInteger('role_id');
+                    $table->string('model_type');
+                    $table->unsignedBigInteger('model_id');
+                    $table->foreign('role_id')->references('id')->on('roles')->onDelete('cascade');
+                    $table->index(['model_id', 'model_type']);
+                    $table->primary(['role_id', 'model_id', 'model_type']);
+                });
+                $messages[] = 'Created table: model_has_roles';
+            }
+
+            if (Schema::hasTable('permissions') && !Schema::hasTable('model_has_permissions')) {
+                Schema::create('model_has_permissions', function (Blueprint $table) {
+                    $table->unsignedInteger('permission_id');
+                    $table->string('model_type');
+                    $table->unsignedBigInteger('model_id');
+                    $table->foreign('permission_id')->references('id')->on('permissions')->onDelete('cascade');
+                    $table->index(['model_id', 'model_type']);
+                    $table->primary(['permission_id', 'model_id', 'model_type']);
+                });
+                $messages[] = 'Created table: model_has_permissions';
+            }
+
+            // 4. Migrate data: permission_role -> role_has_permissions
+            if (Schema::hasTable('permission_role') && Schema::hasTable('role_has_permissions')) {
+                $rows = DB::table('permission_role')->get();
+                foreach ($rows as $row) {
+                    DB::table('role_has_permissions')->insertOrIgnore([
+                        'permission_id' => $row->permission_id,
+                        'role_id' => $row->role_id,
+                    ]);
+                }
+                if ($rows->isNotEmpty()) {
+                    $messages[] = 'Migrated permission_role data to role_has_permissions.';
+                }
+            }
+
+            // 5. Migrate data: role_user -> model_has_roles
+            if (Schema::hasTable('role_user') && Schema::hasTable('model_has_roles')) {
+                $rows = DB::table('role_user')->get();
+                foreach ($rows as $row) {
+                    DB::table('model_has_roles')->insertOrIgnore([
+                        'role_id' => $row->role_id,
+                        'model_type' => $row->user_type ?? \App\Models\User::class,
+                        'model_id' => $row->user_id,
+                    ]);
+                }
+                if ($rows->isNotEmpty()) {
+                    $messages[] = 'Migrated role_user data to model_has_roles.';
+                }
+            }
+
+            // 6. Migrate data: permission_user -> model_has_permissions
+            if (Schema::hasTable('permission_user') && Schema::hasTable('model_has_permissions')) {
+                $rows = DB::table('permission_user')->get();
+                foreach ($rows as $row) {
+                    DB::table('model_has_permissions')->insertOrIgnore([
+                        'permission_id' => $row->permission_id,
+                        'model_type' => $row->user_type ?? \App\Models\User::class,
+                        'model_id' => $row->user_id,
+                    ]);
+                }
+                if ($rows->isNotEmpty()) {
+                    $messages[] = 'Migrated permission_user data to model_has_permissions.';
+                }
+            }
+
+            // 7. Drop old Laratrust pivot tables
+            if (Schema::hasTable('permission_role')) {
+                Schema::dropIfExists('permission_role');
+                $messages[] = 'Dropped table: permission_role';
+            }
+            if (Schema::hasTable('role_user')) {
+                Schema::dropIfExists('role_user');
+                $messages[] = 'Dropped table: role_user';
+            }
+            if (Schema::hasTable('permission_user')) {
+                Schema::dropIfExists('permission_user');
+                $messages[] = 'Dropped table: permission_user';
+            }
+
+            if (empty($messages)) {
+                $messages[] = 'Laratrust→Spatie: Nothing to do (already migrated or tables missing).';
+            }
+        } catch (\Exception $e) {
+            $messages[] = 'Laratrust→Spatie migration error: ' . $e->getMessage();
+        }
+
+        return $messages;
     }
 }
