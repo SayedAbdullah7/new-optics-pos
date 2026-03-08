@@ -99,15 +99,19 @@ class SystemUpdateController extends Controller
         $prefix = "[{$databaseName}] ";
         $messages = [];
 
-        // 0. Migrate Laratrust to Spatie Permission tables (if needed)
-        foreach ($this->migrateLaratrustToSpatiePermissionTables() as $msg) {
-            $messages[] = $prefix . $msg;
-        }
+        // // 0. Migrate Laratrust to Spatie Permission tables (if needed)
+        // foreach ($this->migrateLaratrustToSpatiePermissionTables() as $msg) {
+        //     $messages[] = $prefix . $msg;
+        // }
 
         // 0.1 Sync all project permissions to current DB (create if not exists)
         foreach ($this->syncPermissionsToCurrentConnection() as $msg) {
             $messages[] = $prefix . $msg;
         }
+        foreach ($messages as $message) {
+            echo $message . '<br>';
+        }
+        return[];
 
         // 1. Check and create inventory_ledger table
         if (!Schema::hasTable('inventory_ledger')) {
