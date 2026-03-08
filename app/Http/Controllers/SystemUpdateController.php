@@ -11,14 +11,59 @@ use Illuminate\Support\Facades\DB;
 class SystemUpdateController extends Controller
 {
     /**
-     * Run system updates and migrations manually.
+     * Run system updates and migrations manually on all tenant databases.
      */
     public function update()
     {
         $messages = [];
+        $tenantDatabases = $this->getTenantDatabaseNames();
+
+        foreach ($tenantDatabases as $databaseName) {
+            $this->switchToTenantDatabase($databaseName);
+            $messages[] = "--- Tenant DB: {$databaseName} ---";
+            $messages = array_merge($messages, $this->runUpdatesOnCurrentConnection($databaseName));
+        }
+
+        return response()->json([
+            'status' => true,
+            'messages' => $messages
+        ]);
+    }
+
+    /**
+     * Get list of tenant database names. If multi-tenancy is configured, returns all; otherwise current only.
+     */
+    protected function getTenantDatabaseNames(): array
+    {
+        $databases = array_values(config('tenancy.databases', []));
+        if (! empty($databases)) {
+            return $databases;
+        }
+        return [config('database.connections.mysql.database', 'laravel')];
+    }
+
+    /**
+     * Switch default mysql connection to the given tenant database.
+     */
+    protected function switchToTenantDatabase(string $databaseName): void
+    {
+        config(['database.connections.mysql.database' => $databaseName]);
+        DB::purge('mysql');
+        DB::reconnect('mysql');
+    }
+
+    /**
+     * Run all schema/artisan updates on the current DB connection. Returns messages prefixed for the tenant.
+     */
+    protected function runUpdatesOnCurrentConnection(string $databaseName): array
+    {
+        $prefix = "[{$databaseName}] ";
+        $messages = [];
 
         // 0. Migrate Laratrust to Spatie Permission tables (if needed)
-        $messages = array_merge($messages, $this->migrateLaratrustToSpatiePermissionTables());
+        foreach ($this->migrateLaratrustToSpatiePermissionTables() as $msg) {
+            $messages[] = $prefix . $msg;
+        }
 
         // 1. Check and create inventory_ledger table
         if (!Schema::hasTable('inventory_ledger')) {
@@ -43,12 +88,12 @@ class SystemUpdateController extends Controller
                     $table->index(['reference_type', 'reference_id']);
                     $table->index('type');
                 });
-                $messages[] = 'Created table: inventory_ledger';
+                $messages[] = $prefix . 'Created table: inventory_ledger';
             } catch (\Exception $e) {
-                $messages[] = 'Error creating inventory_ledger table: ' . $e->getMessage();
+                $messages[] = $prefix . 'Error creating inventory_ledger table: ' . $e->getMessage();
             }
         } else {
-            $messages[] = 'Table inventory_ledger already exists.';
+            $messages[] = $prefix . 'Table inventory_ledger already exists.';
         }
 
         // 2. Add cost_price to invoice_items and invoice_lenses
@@ -57,15 +102,15 @@ class SystemUpdateController extends Controller
                 Schema::table('invoice_items', function (Blueprint $table) {
                     $table->decimal('cost_price', 15, 4)->default(0)->after('price');
                 });
-                $messages[] = 'Added cost_price column to invoice_items';
+                $messages[] = $prefix . 'Added cost_price column to invoice_items';
             } catch (\Exception $e) {
-                $messages[] = 'Error adding cost_price to invoice_items: ' . $e->getMessage();
+                $messages[] = $prefix . 'Error adding cost_price to invoice_items: ' . $e->getMessage();
             }
         } else {
             if (Schema::hasColumn('invoice_items', 'cost_price')) {
-                $messages[] = 'Column cost_price already exists in invoice_items.';
+                $messages[] = $prefix . 'Column cost_price already exists in invoice_items.';
             } else {
-                $messages[] = 'Table invoice_items does not exist, skipping cost_price column.';
+                $messages[] = $prefix . 'Table invoice_items does not exist, skipping cost_price column.';
             }
         }
 
@@ -74,15 +119,15 @@ class SystemUpdateController extends Controller
                 Schema::table('invoice_lenses', function (Blueprint $table) {
                     $table->decimal('cost_price', 15, 4)->default(0)->after('price');
                 });
-                $messages[] = 'Added cost_price column to invoice_lenses';
+                $messages[] = $prefix . 'Added cost_price column to invoice_lenses';
             } catch (\Exception $e) {
-                $messages[] = 'Error adding cost_price to invoice_lenses: ' . $e->getMessage();
+                $messages[] = $prefix . 'Error adding cost_price to invoice_lenses: ' . $e->getMessage();
             }
         } else {
             if (Schema::hasColumn('invoice_lenses', 'cost_price')) {
-                $messages[] = 'Column cost_price already exists in invoice_lenses.';
+                $messages[] = $prefix . 'Column cost_price already exists in invoice_lenses.';
             } else {
-                $messages[] = 'Table invoice_lenses does not exist, skipping cost_price column.';
+                $messages[] = $prefix . 'Table invoice_lenses does not exist, skipping cost_price column.';
             }
         }
 
@@ -92,15 +137,15 @@ class SystemUpdateController extends Controller
                 Schema::table('products', function (Blueprint $table) {
                     $table->decimal('weighted_cost', 15, 4)->default(0)->after('purchase_price');
                 });
-                $messages[] = 'Added weighted_cost column to products';
+                $messages[] = $prefix . 'Added weighted_cost column to products';
             } catch (\Exception $e) {
-                $messages[] = 'Error adding weighted_cost to products: ' . $e->getMessage();
+                $messages[] = $prefix . 'Error adding weighted_cost to products: ' . $e->getMessage();
             }
         } else {
             if (Schema::hasColumn('products', 'weighted_cost')) {
-                $messages[] = 'Column weighted_cost already exists in products.';
+                $messages[] = $prefix . 'Column weighted_cost already exists in products.';
             } else {
-                $messages[] = 'Table products does not exist, skipping weighted_cost column.';
+                $messages[] = $prefix . 'Table products does not exist, skipping weighted_cost column.';
             }
         }
 
@@ -109,15 +154,15 @@ class SystemUpdateController extends Controller
                 Schema::table('lenses', function (Blueprint $table) {
                     $table->decimal('weighted_cost', 15, 4)->default(0)->after('purchase_price');
                 });
-                $messages[] = 'Added weighted_cost column to lenses';
+                $messages[] = $prefix . 'Added weighted_cost column to lenses';
             } catch (\Exception $e) {
-                $messages[] = 'Error adding weighted_cost to lenses: ' . $e->getMessage();
+                $messages[] = $prefix . 'Error adding weighted_cost to lenses: ' . $e->getMessage();
             }
         } else {
             if (Schema::hasColumn('lenses', 'weighted_cost')) {
-                $messages[] = 'Column weighted_cost already exists in lenses.';
+                $messages[] = $prefix . 'Column weighted_cost already exists in lenses.';
             } else {
-                $messages[] = 'Table lenses does not exist, skipping weighted_cost column.';
+                $messages[] = $prefix . 'Table lenses does not exist, skipping weighted_cost column.';
             }
         }
 
@@ -142,7 +187,7 @@ class SystemUpdateController extends Controller
                     $table->decimal('total', 15, 2)->default(0);
                     $table->timestamps();
                 });
-                $messages[] = 'Created table: bill_lenses';
+                $messages[] = $prefix . 'Created table: bill_lenses';
             } catch (\Exception $e) {
                 // Retry with BigInteger if Integer fails (fallback strategy)
                 try {
@@ -156,14 +201,14 @@ class SystemUpdateController extends Controller
                         $table->decimal('total', 15, 2)->default(0);
                         $table->timestamps();
                     });
-                    $messages[] = 'Created table: bill_lenses (using BigInt)';
+                    $messages[] = $prefix . 'Created table: bill_lenses (using BigInt)';
                 } catch (\Exception $e2) {
-                     $messages[] = 'Error creating bill_lenses (Int): ' . $e->getMessage();
-                     $messages[] = 'Error creating bill_lenses (BigInt): ' . $e2->getMessage();
+                     $messages[] = $prefix . 'Error creating bill_lenses (Int): ' . $e->getMessage();
+                     $messages[] = $prefix . 'Error creating bill_lenses (BigInt): ' . $e2->getMessage();
                 }
             }
         } else {
-            $messages[] = 'Table bill_lenses already exists.';
+            $messages[] = $prefix . 'Table bill_lenses already exists.';
         }
 
         // 5. Sync Bill Stock (Historical Data)
@@ -171,15 +216,12 @@ class SystemUpdateController extends Controller
         try {
             Artisan::call('stock:sync-bills');
             $output = Artisan::output();
-            $messages[] = 'Stock Sync Output: ' . $output;
+            $messages[] = $prefix . 'Stock Sync Output: ' . trim($output);
         } catch (\Exception $e) {
-            $messages[] = 'Error syncing stock: ' . $e->getMessage();
+            $messages[] = $prefix . 'Error syncing stock: ' . $e->getMessage();
         }
 
-        return response()->json([
-            'status' => true,
-            'messages' => $messages
-        ]);
+        return $messages;
     }
 
     /**

@@ -10,25 +10,17 @@ use Symfony\Component\HttpFoundation\Response;
 class TenantDatabase
 {
     /**
-     * Map subdomains to tenant databases.
-     */
-    protected array $databases = [
-        'alasadiya-sky' => 'alasadiya_db',
-        'abuhamad-sky'  => 'abuhamad_db',
-        'demo'           => 'demo_db',
-    ];
-
-    /**
      * Handle an incoming request.
      */
     public function handle(Request $request, Closure $next): Response
     {
+        $databases = config('tenancy.databases', []);
         $host = $request->getHost();
         $subdomain = explode('.', $host)[0];
 
-        if (isset($this->databases[$subdomain])) {
+        if (isset($databases[$subdomain])) {
             config([
-                'database.connections.mysql.database' => $this->databases[$subdomain],
+                'database.connections.mysql.database' => $databases[$subdomain],
             ]);
 
             DB::purge('mysql');
