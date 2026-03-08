@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Permission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
@@ -53,6 +54,44 @@ class SystemUpdateController extends Controller
     }
 
     /**
+     * Sync all permission names from config to the current DB (create if not exists). Respects tenant DB.
+     *
+     * @return array<string>
+     */
+    protected function syncPermissionsToCurrentConnection(): array
+    {
+        $messages = [];
+        $guard = 'web';
+
+        if (! Schema::hasTable('permissions')) {
+            $messages[] = 'Permissions table does not exist, skipping permission sync.';
+            return $messages;
+        }
+
+        $names = config('permissions_list.names', []);
+        if (empty($names)) {
+            $messages[] = 'No permission names in config (permissions_list.names), skipping.';
+            return $messages;
+        }
+
+        $created = 0;
+        foreach ($names as $name) {
+            $exists = Permission::where('name', $name)->where('guard_name', $guard)->exists();
+            if (! $exists) {
+                try {
+                    Permission::create(['name' => $name, 'guard_name' => $guard]);
+                    $created++;
+                } catch (\Exception $e) {
+                    $messages[] = 'Error creating permission "' . $name . '": ' . $e->getMessage();
+                }
+            }
+        }
+
+        $messages[] = 'Permissions synced: ' . $created . ' created, ' . (count($names) - $created) . ' already existed.';
+        return $messages;
+    }
+
+    /**
      * Run all schema/artisan updates on the current DB connection. Returns messages prefixed for the tenant.
      */
     protected function runUpdatesOnCurrentConnection(string $databaseName): array
@@ -62,6 +101,11 @@ class SystemUpdateController extends Controller
 
         // 0. Migrate Laratrust to Spatie Permission tables (if needed)
         foreach ($this->migrateLaratrustToSpatiePermissionTables() as $msg) {
+            $messages[] = $prefix . $msg;
+        }
+
+        // 0.1 Sync all project permissions to current DB (create if not exists)
+        foreach ($this->syncPermissionsToCurrentConnection() as $msg) {
             $messages[] = $prefix . $msg;
         }
 
