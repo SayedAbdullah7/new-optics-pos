@@ -1,0 +1,25 @@
+# Multi-Tenancy: استخدم هذا الملف كمرجع ثم انسخه إلى:
+# sudo cp nginx-multi-tenant.conf.example /etc/nginx/sites-available/laravel
+# عدّل المسار والـ server_name حسب السيرفر ثم:
+# nginx -t && sudo systemctl reload nginx
+
+server {
+    listen 80;
+    server_name *.194.163.164.43.nip.io;
+
+    root /var/www/laravel/public;
+    index index.php index.html;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+    }
+
+    location ~ /\. {
+        deny all;
+    }
+}

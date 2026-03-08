@@ -525,7 +525,7 @@
                     setSaveButtonLoading(btn, false);
                     if (data.status) {
                         showPresetMessage('تم الحفظ بنجاح.');
-                        window.location.href = '{{ route("admin.lens-power-presets.index") }}';
+                        window.location.href = '{{ route("admin.range-powers.index") }}';
                     } else {
                         showPresetMessage(data.message || 'فشل الحفظ', true);
                     }

@@ -1,8 +1,8 @@
 @php
     $isEdit = isset($model);
     $actionRoute = $isEdit
-        ? route('admin.lens-power-presets.update', $model)
-        : route('admin.lens-power-presets.store');
+        ? route('admin.range-powers.update', $model)
+        : route('admin.range-powers.store');
     $method = $isEdit ? 'PUT' : 'POST';
 @endphp
 

@@ -42,7 +42,7 @@ class InvoiceRequest extends FormRequest
             'lens_category' => 'nullable|array',
             'lens_category.*' => 'nullable|string',
             'lens_quantity' => 'nullable|array',
-            'lens_quantity.*' => 'nullable|integer|min:2',
+            'lens_quantity.*' => 'nullable|integer|min:1',
             'lens_price' => 'nullable|array',
             'lens_price.*' => 'nullable|numeric|min:0',
         ];

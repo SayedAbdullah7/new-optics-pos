@@ -1,7 +1,7 @@
 {{-- Card Header --}}
 <div class="card-header border-0 pt-6">
     <div class="card-title">
-        <a href="{{ route('admin.lens-power-presets.index') }}" class="btn btn-sm btn-icon btn-light me-3" title="رجوع">
+        <a href="{{ route('admin.range-powers.index') }}" class="btn btn-sm btn-icon btn-light me-3" title="رجوع">
             <i class="fas fa-arrow-right"></i>
         </a>
         <h3 class="fw-bold m-0">

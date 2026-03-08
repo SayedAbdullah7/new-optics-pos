@@ -1,8 +1,9 @@
 <div class="d-flex justify-content-end gap-2">
+    @can('update-range-powers')
     <a href="#"
        class="btn btn-icon btn-light-warning btn-sm has_action"
        data-type="edit"
-       data-action="{{ route('admin.lens-power-presets.edit', $model) }}"
+       data-action="{{ route('admin.range-powers.edit', $model) }}"
        data-bs-toggle="tooltip"
        title="تعديل الاسم">
         <i class="ki-duotone ki-pencil fs-5">
@@ -10,6 +11,8 @@
             <span class="path2"></span>
         </i>
     </a>
+    @endcan
+    @can('update-multi-select-table')
     <a href="{{ route('admin.multi-select-table.index', ['preset' => $model->id]) }}"
        class="btn btn-icon btn-light-primary btn-sm"
        data-bs-toggle="tooltip"
@@ -32,4 +35,5 @@
             <span class="path5"></span>
         </i>
     </a>
+    @endcan
 </div>

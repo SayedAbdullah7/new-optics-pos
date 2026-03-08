@@ -36,6 +36,7 @@
                     <div class="fw-bold fs-5">{{ $paper->addtion ?: '-' }}</div>
                 </div>
             @endif
+            <div id="prescription_range_badge_right" class="prescription-range-badge mt-2 small text-center"></div>
         </div>
 
         <!-- Left Eye (OS) -->
@@ -68,6 +69,7 @@
                     <div class="fw-bold fs-5">{{ $paper->ipd ?: '-' }}</div>
                 </div>
             @endif
+            <div id="prescription_range_badge_left" class="prescription-range-badge mt-2 small text-center"></div>
         </div>
     </div>
 

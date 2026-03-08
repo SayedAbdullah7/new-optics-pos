@@ -100,6 +100,22 @@ class InvoiceController extends Controller
                 }
 
                 return response()->json($array);
+            } elseif ($request->has('suggest_range') && $request->has('sph') && $request->has('cyl')) {
+                // Suggest range powers matching prescription SPH+CYL (for invoice lens selection)
+                $sph = round((float) $request->input('sph'), 2);
+                $cyl = round((float) $request->input('cyl'), 2);
+
+                $ranges = RangePower::query()
+                    ->whereHas('values', function ($q) use ($sph, $cyl) {
+                        $q->where('sph', $sph)->where('cyl', $cyl);
+                    })
+                    ->orderBy('name')
+                    ->get(['id', 'name']);
+
+                return response()->json([
+                    'status' => true,
+                    'data' => $ranges,
+                ]);
             }
         }
 
