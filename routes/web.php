@@ -43,6 +43,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () 
 
     // Clients Management
     Route::get('/clients', [ClientController::class, 'index'])->name('clients.index')->middleware('permission:read-clients');
+    Route::get('/clients/{client}/paper', [ClientController::class, 'paper'])->name('clients.paper')->middleware('permission:read-clients');
     Route::resource('clients', ClientController::class)->except(['index'])->middleware('permission:create-clients|update-clients|delete-clients');
 
     // Categories Management

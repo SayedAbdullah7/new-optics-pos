@@ -79,6 +79,42 @@ class ClientController extends Controller
     }
 
     /**
+     * Get the client's latest prescription (paper) as JSON for invoice form.
+     */
+    public function paper(Client $client): JsonResponse
+    {
+        $paper = $client->papers()->latest()->first();
+
+        if (!$paper) {
+            return response()->json([
+                'status' => true,
+                'paper' => null,
+            ]);
+        }
+
+        return response()->json([
+            'status' => true,
+            'paper' => [
+                'id' => $paper->id,
+                'R_sph' => $paper->R_sph,
+                'R_cyl' => $paper->R_cyl,
+                'R_axis' => $paper->R_axis,
+                'L_sph' => $paper->L_sph,
+                'L_cyl' => $paper->L_cyl,
+                'L_axis' => $paper->L_axis,
+                'addtion' => $paper->addtion,
+                'ipd' => $paper->ipd,
+                'raw' => [
+                    'R_sph' => $paper->getRawRSph(),
+                    'R_cyl' => $paper->getRawRCyl(),
+                    'L_sph' => $paper->getRawLSph(),
+                    'L_cyl' => $paper->getRawLCyl(),
+                ],
+            ],
+        ]);
+    }
+
+    /**
      * Display the specified resource.
      */
     public function show(Client $client): View

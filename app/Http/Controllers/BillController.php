@@ -65,9 +65,10 @@ class BillController extends Controller
                 ]);
             } elseif ($request->has('type') && $request->has('range')) {
                 // Get categories based on type and range
+                $skipRangeId = config('optics.skip_range_filter_id');
                 $lenses = Lens::with('category')
                     ->where('type_id', $request->type)
-                    ->when($request->range != 4, function($q) use ($request) {
+                    ->when($skipRangeId === null || (string) $request->range !== (string) $skipRangeId, function ($q) use ($request) {
                         return $q->where('RangePower_id', $request->range);
                     })
                     ->get();
@@ -84,8 +85,9 @@ class BillController extends Controller
                 return response()->json($array);
             } elseif ($request->has('range')) {
                 // Get types based on range
+                $skipRangeId = config('optics.skip_range_filter_id');
                 $lenses = Lens::with('type')
-                    ->when($request->range != 4, function($q) use ($request) {
+                    ->when($skipRangeId === null || (string) $request->range !== (string) $skipRangeId, function ($q) use ($request) {
                         return $q->where('RangePower_id', $request->range);
                     })
                     ->get();

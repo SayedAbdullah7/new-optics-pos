@@ -65,9 +65,10 @@ class InvoiceController extends Controller
                 ]);
             } elseif ($request->has('type') && $request->has('range')) {
                 // Get categories based on type and range
+                $skipRangeId = config('optics.skip_range_filter_id');
                 $lenses = Lens::with('category')
                     ->where('type_id', $request->type)
-                    ->when($request->range != 4, function($q) use ($request) {
+                    ->when($skipRangeId === null || (string) $request->range !== (string) $skipRangeId, function ($q) use ($request) {
                         return $q->where('RangePower_id', $request->range);
                     })
                     ->get();
@@ -84,8 +85,9 @@ class InvoiceController extends Controller
                 return response()->json($array);
             } elseif ($request->has('range')) {
                 // Get types based on range
+                $skipRangeId = config('optics.skip_range_filter_id');
                 $lenses = Lens::with('type')
-                    ->when($request->range != 4, function($q) use ($request) {
+                    ->when($skipRangeId === null || (string) $request->range !== (string) $skipRangeId, function ($q) use ($request) {
                         return $q->where('RangePower_id', $request->range);
                     })
                     ->get();
@@ -116,6 +118,41 @@ class InvoiceController extends Controller
                     'status' => true,
                     'data' => $ranges,
                 ]);
+            } elseif ($request->has('get_brands_by_type') && $request->has('type')) {
+                // Get strictly categories (brands) available for a specific Type (ignoring range)
+                $skipRangeId = config('optics.skip_range_filter_id');
+                $lenses = Lens::with('category')
+                    ->where('type_id', $request->type)
+                    ->get();
+
+                $categories = $lenses->pluck('category')->unique('id')->values();
+                $array = [];
+                foreach ($categories as $category) {
+                    if ($category) {
+                        $array[] = ['value' => $category->id, 'text' => $category->brand_name ?? $category->name];
+                    }
+                }
+                return response()->json($array);
+            } elseif ($request->has('get_ranges_by_type_brand') && $request->has('type') && $request->has('category')) {
+                // Get ranges and perfectly matched lens_id based on Type and Category (Brand)
+                $lenses = Lens::with('rangePower')
+                    ->where('type_id', $request->type)
+                    ->where('category_id', $request->category)
+                    ->get();
+                
+                $array = [];
+                foreach ($lenses as $lens) {
+                    $range = $lens->rangePower;
+                    if ($range) {
+                        $array[] = [
+                            'value' => $range->id,
+                            'text' => $range->name,
+                            'lens_id' => $lens->id,
+                            'lens_price' => $lens->sale_price,
+                        ];
+                    }
+                }
+                return response()->json($array);
             }
         }
 
@@ -145,79 +182,159 @@ class InvoiceController extends Controller
         ));
     }
 
+    /**
+     * Parse items from HTTP Request arrays and validate models.
+     */
+    private function parseAndValidateItems(array $validatorInput, array $priceInput, array $quantityInput, array $lensPriceInput, array $lensQuantityInput, array $lensEyeInput): array
+    {
+        $productsAmount = 0;
+        $lensesAmount = 0;
+        $items = [];
+        $lenses = [];
+
+        if (!empty($validatorInput['product'])) {
+            foreach ($validatorInput['product'] as $i => $productValue) {
+                $productParts = explode('&', $productValue);
+                $productId = $productParts[0];
+                $price = $priceInput[$i] ?? 0;
+                $quantity = $quantityInput[$i] ?? 1;
+                
+                $product = \App\Models\Product::find($productId);
+                if ($product) {
+                    $total = $price * $quantity;
+                    $productsAmount += $total;
+                    
+                    $items[] = [
+                        'item_id' => $productId,
+                        'name' => $product->name,
+                        'price' => $price,
+                        'quantity' => $quantity,
+                        'total' => $total,
+                        'model' => $product
+                    ];
+                }
+            }
+        }
+
+        if (!empty($validatorInput['lens_category'])) {
+            foreach ($validatorInput['lens_category'] as $i => $categoryValue) {
+                $categoryParts = explode('&', $categoryValue);
+                $lensId = $categoryParts[2] ?? null;
+                $price = $lensPriceInput[$i] ?? 0;
+                $quantity = $lensQuantityInput[$i] ?? 2;
+                $eye = $lensEyeInput[$i] ?? null;
+                
+                if ($lensId) {
+                    $lens = \App\Models\Lens::find($lensId);
+                    if ($lens) {
+                        $total = ($price * $quantity) / 2;
+                        $lensesAmount += $total;
+                        
+                        $lenses[] = [
+                            'lens_id' => $lensId,
+                            'eye' => in_array($eye, ['right', 'left']) ? $eye : null,
+                            'name' => $lens->full_name,
+                            'price' => $price,
+                            'quantity' => $quantity,
+                            'total' => $total,
+                            'model' => $lens
+                        ];
+                    } else {
+                        throw new \InvalidArgumentException(__('Invalid lens in row :row. Please refresh and try again.', ['row' => $i + 1]));
+                    }
+                }
+            }
+        }
+
+        return [
+            'amount' => $productsAmount + $lensesAmount,
+            'items' => $items,
+            'lenses' => $lenses,
+        ];
+    }
+
+    /**
+     * Save items to the DB and deduct from inventory.
+     */
+    private function saveInvoiceStock(\App\Models\Invoice $invoice, array $parsedData, string $logPrefix): void
+    {
+        $inventoryService = app(\App\Services\InventoryService::class);
+        $userId = Auth::id();
+
+        foreach ($parsedData['items'] as $itemData) {
+            $product = $itemData['model'];
+            unset($itemData['model']);
+            
+            $itemData['invoice_id'] = $invoice->id;
+            $itemData['user_id'] = $userId;
+            $itemData['cost_price'] = $inventoryService->getWAC($product);
+            
+            \App\Models\InvoiceItem::create($itemData);
+            $inventoryService->handleSale($product, (int) $itemData['quantity'], $invoice, $logPrefix . ' #' . $invoice->invoice_number);
+        }
+
+        foreach ($parsedData['lenses'] as $lensData) {
+            $lens = $lensData['model'];
+            unset($lensData['model']);
+            
+            $lensData['invoice_id'] = $invoice->id;
+            $lensData['user_id'] = $userId;
+            $lensData['cost_price'] = $inventoryService->getWAC($lens);
+            
+            \App\Models\InvoiceLens::create($lensData);
+            $inventoryService->handleSale($lens, (int) $lensData['quantity'], $invoice, $logPrefix . ' #' . $invoice->invoice_number);
+        }
+    }
+
+    /**
+     * Return items to inventory.
+     */
+    private function restoreInvoiceStock(\App\Models\Invoice $invoice, string $logPrefix): void
+    {
+        $inventoryService = app(\App\Services\InventoryService::class);
+
+        foreach ($invoice->items as $oldItem) {
+            $product = \App\Models\Product::find($oldItem->item_id);
+            if ($product) {
+                $cost = (float) ($oldItem->cost_price ?? $product->weighted_cost ?? $product->purchase_price);
+                $inventoryService->handleSaleReturn($product, (int) $oldItem->quantity, $cost, $invoice, $logPrefix . ' #' . $invoice->invoice_number);
+            }
+        }
+
+        foreach ($invoice->lenses as $oldLens) {
+            $lens = \App\Models\Lens::find($oldLens->lens_id);
+            if ($lens) {
+                $cost = (float) ($oldLens->cost_price ?? $lens->weighted_cost ?? $lens->purchase_price);
+                $inventoryService->handleSaleReturn($lens, (int) $oldLens->quantity, $cost, $invoice, $logPrefix . ' #' . $invoice->invoice_number);
+            }
+        }
+    }
+
     public function store(InvoiceRequest $request): JsonResponse
     {
         try {
             DB::beginTransaction();
 
-            $inventoryService = app(InventoryService::class);
             $data = $request->validated();
             $data['user_id'] = Auth::id();
             $data['invoice_number'] = $data['invoice_number'] ?? Invoice::generateInvoiceNumber();
 
-            // Calculate totals from items
-            $productsAmount = 0;
-            $lensesAmount = 0;
-            $items = [];
-            $lenses = [];
-
-            // Process products
-            if ($request->has('product')) {
-                foreach ($request->product as $i => $productValue) {
-                    if (empty($productValue)) continue;
-
-                    $productParts = explode('&', $productValue);
-                    $productId = $productParts[0];
-                    $price = $request->price[$i] ?? 0;
-                    $quantity = $request->quantity[$i] ?? 1;
-                    $total = $price * $quantity;
-                    $productsAmount += $total;
-
-                    $product = Product::find($productId);
-                    if ($product) {
-                        $items[] = [
-                            'item_id' => $productId,
-                            'name' => $product->name,
-                            'price' => $price,
-                            'quantity' => $quantity,
-                            'total' => $total,
-                        ];
-                    }
-                }
+            $parsedData = $this->parseAndValidateItems(
+                $data, 
+                $request->price ?? [], 
+                $request->quantity ?? [], 
+                $request->lens_price ?? [], 
+                $request->lens_quantity ?? [],
+                $request->lens_eye ?? []
+            );
+            
+            if ($parsedData['amount'] <= 0) {
+                throw new \InvalidArgumentException(__('Add at least one product or lens with a valid price.'));
             }
 
-            // Process lenses
-            if ($request->has('lens_category')) {
-                foreach ($request->lens_category as $i => $categoryValue) {
-                    if (empty($categoryValue)) continue;
-
-                    $categoryParts = explode('&', $categoryValue);
-                    $lensId = $categoryParts[2] ?? null;
-                    $price = $request->lens_price[$i] ?? 0;
-                    $quantity = $request->lens_quantity[$i] ?? 2;
-                    $total = ($price * $quantity) / 2;
-                    $lensesAmount += $total;
-
-                    if ($lensId) {
-                        $lens = Lens::with(['rangePower', 'type', 'category'])->find($lensId);
-                        $lensName = $lens ? $lens->full_name : 'Lens';
-
-                        $lenses[] = [
-                            'lens_id' => $lensId,
-                            'name' => $lensName,
-                            'price' => $price,
-                            'quantity' => $quantity,
-                            'total' => $total,
-                        ];
-                    }
-                }
-            }
-
-            // Set calculated amount
-            $data['amount'] = $productsAmount + $lensesAmount;
-
-            // Determine status based on payment
-            $paidAmount = $request->paid ?? 0;
+            $data['amount'] = $parsedData['amount'];
+            
+            $paidAmount = (float) ($request->paid ?? 0);
             if ($paidAmount >= $data['amount'] && $data['amount'] > 0) {
                 $data['status'] = 'paid';
             } elseif ($paidAmount > 0) {
@@ -226,54 +343,10 @@ class InvoiceController extends Controller
                 $data['status'] = 'unpaid';
             }
 
-            // Create invoice
             $invoice = Invoice::create($data);
 
-            // Create invoice items
-            foreach ($items as $item) {
-                $product = Product::find($item['item_id']);
-                if (!$product) continue;
+            $this->saveInvoiceStock($invoice, $parsedData, 'Invoice');
 
-                // Get current WAC for cost_price
-                $costPrice = $inventoryService->getWAC($product);
-
-                $item['invoice_id'] = $invoice->id;
-                $item['user_id'] = Auth::id();
-                $item['cost_price'] = $costPrice;
-                InvoiceItem::create($item);
-
-                // Handle inventory sale
-                $inventoryService->handleSale(
-                    $product,
-                    (int) $item['quantity'],
-                    $invoice,
-                    'Invoice #' . $invoice->invoice_number
-                );
-            }
-
-            // Create invoice lenses
-            foreach ($lenses as $lens) {
-                $lensModel = Lens::find($lens['lens_id']);
-                if (!$lensModel) continue;
-
-                // Get current WAC for cost_price
-                $costPrice = $inventoryService->getWAC($lensModel);
-
-                $lens['invoice_id'] = $invoice->id;
-                $lens['user_id'] = Auth::id();
-                $lens['cost_price'] = $costPrice;
-                InvoiceLens::create($lens);
-
-                // Handle inventory sale for lens
-                $inventoryService->handleSale(
-                    $lensModel,
-                    (int) $lens['quantity'],
-                    $invoice,
-                    'Invoice #' . $invoice->invoice_number
-                );
-            }
-
-            // Create payment transaction if paid
             if ($paidAmount > 0) {
                 Transaction::create([
                     'user_id' => Auth::id(),
@@ -282,7 +355,7 @@ class InvoiceController extends Controller
                     'paid_at' => $data['invoiced_at'] ?? now(),
                     'category_id' => 1,
                     'document_id' => $invoice->id,
-                    'account_id' => $request->account_id,
+                    'account_id' => $request->account_id ?? 1,
                 ]);
             }
 
@@ -298,7 +371,7 @@ class InvoiceController extends Controller
             return response()->json([
                 'status' => false,
                 'msg' => 'Failed to create invoice: ' . $e->getMessage()
-            ], 500);
+            ], $e instanceof \InvalidArgumentException ? 422 : 500);
         }
     }
 
@@ -321,7 +394,7 @@ class InvoiceController extends Controller
 
     public function edit(Invoice $invoice): View
     {
-        $invoice->load(['items', 'lenses.lens']);
+        $invoice->load(['items', 'lenses.lens.rangePower', 'lenses.lens.type', 'lenses.lens.category']);
 
         $clients = Client::pluck('name', 'id');
         $products = Product::with('translations')->get();
@@ -329,6 +402,16 @@ class InvoiceController extends Controller
         $types = LensType::all();
         $categories = LensCategory::all();
         $accounts = Account::with('translations')->active()->orderBy('default', 'DESC')->get();
+
+        $lensPairs = [];
+        $singleLenses = [];
+        foreach ($invoice->lenses as $invLens) {
+            if ($invLens->quantity >= 2) {
+                $lensPairs[] = ['invoice_lens' => $invLens, 'lens' => $invLens->lens];
+            } else {
+                $singleLenses[] = $invLens;
+            }
+        }
 
         return view('pages.invoice.form', [
             'model' => $invoice,
@@ -338,6 +421,8 @@ class InvoiceController extends Controller
             'types' => $types,
             'categories' => $categories,
             'accounts' => $accounts,
+            'lensPairs' => $lensPairs,
+            'singleLenses' => $singleLenses,
         ]);
     }
 
@@ -346,150 +431,52 @@ class InvoiceController extends Controller
         try {
             DB::beginTransaction();
 
-            $inventoryService = app(InventoryService::class);
             $data = $request->validated();
-
-            // Calculate totals from items
-            $productsAmount = 0;
-            $lensesAmount = 0;
-            $items = [];
-            $lenses = [];
-
-            // Process products
-            if ($request->has('product')) {
-                foreach ($request->product as $i => $productValue) {
-                    if (empty($productValue)) continue;
-
-                    $productParts = explode('&', $productValue);
-                    $productId = $productParts[0];
-                    $price = $request->price[$i] ?? 0;
-                    $quantity = $request->quantity[$i] ?? 1;
-                    $total = $price * $quantity;
-                    $productsAmount += $total;
-
-                    $product = Product::find($productId);
-                    if ($product) {
-                        $items[] = [
-                            'item_id' => $productId,
-                            'name' => $product->name,
-                            'price' => $price,
-                            'quantity' => $quantity,
-                            'total' => $total,
-                        ];
-                    }
-                }
+            
+            $parsedData = $this->parseAndValidateItems(
+                $data, 
+                $request->price ?? [], 
+                $request->quantity ?? [], 
+                $request->lens_price ?? [], 
+                $request->lens_quantity ?? [],
+                $request->lens_eye ?? []
+            );
+            
+            if ($parsedData['amount'] <= 0) {
+                throw new \InvalidArgumentException(__('Add at least one product or lens with a valid price.'));
             }
 
-            // Process lenses
-            if ($request->has('lens_category')) {
-                foreach ($request->lens_category as $i => $categoryValue) {
-                    if (empty($categoryValue)) continue;
+            $data['amount'] = $parsedData['amount'];
 
-                    $categoryParts = explode('&', $categoryValue);
-                    $lensId = $categoryParts[2] ?? null;
-                    $price = $request->lens_price[$i] ?? 0;
-                    $quantity = $request->lens_quantity[$i] ?? 2;
-                    $total = ($price * $quantity) / 2;
-                    $lensesAmount += $total;
+            $newPaidAmount = (float) ($request->paid ?? 0);
+            $currentPaidAmount = (float) $invoice->paid;
+            $paymentDelta = $newPaidAmount - $currentPaidAmount;
 
-                    if ($lensId) {
-                        $lens = Lens::with(['rangePower', 'type', 'category'])->find($lensId);
-                        $lensName = $lens ? $lens->full_name : 'Lens';
-
-                        $lenses[] = [
-                            'lens_id' => $lensId,
-                            'name' => $lensName,
-                            'price' => $price,
-                            'quantity' => $quantity,
-                            'total' => $total,
-                        ];
-                    }
-                }
+            if (abs($paymentDelta) > 0.001) {
+                $accountId = $request->account_id ?? ($invoice->transactions()->first()?->account_id ?? 1);
+                
+                Transaction::create([
+                    'user_id' => Auth::id(),
+                    'type' => 'income',
+                    'amount' => $paymentDelta,
+                    'paid_at' => $data['invoiced_at'] ?? now(),
+                    'category_id' => 1,
+                    'document_id' => $invoice->id,
+                    'account_id' => $accountId,
+                    'description' => 'Payment adjustment for invoice #' . $invoice->invoice_number
+                ]);
             }
 
-            // Set calculated amount
-            $data['amount'] = $productsAmount + $lensesAmount;
+            $this->restoreInvoiceStock($invoice, 'Invoice update - restore stock for');
 
-            // Restore old stock (sale return) before updating items
-            foreach ($invoice->items as $oldItem) {
-                $product = Product::find($oldItem->item_id);
-                if ($product) {
-                    $inventoryService->handleSaleReturn(
-                        $product,
-                        (int) $oldItem->quantity,
-                        (float) ($oldItem->cost_price ?? $product->weighted_cost ?? $product->purchase_price),
-                        $invoice,
-                        'Invoice update - restore stock for #' . $invoice->invoice_number
-                    );
-                }
-            }
-
-            // Restore old stock for lenses (sale return)
-            foreach ($invoice->lenses as $oldLens) {
-                $lens = Lens::find($oldLens->lens_id);
-                if ($lens) {
-                    $inventoryService->handleSaleReturn(
-                        $lens,
-                        (int) $oldLens->quantity,
-                        (float) ($oldLens->cost_price ?? $lens->weighted_cost ?? $lens->purchase_price),
-                        $invoice,
-                        'Invoice update - restore stock for #' . $invoice->invoice_number
-                    );
-                }
-            }
-
-            // Delete old items and lenses
             $invoice->items()->delete();
             $invoice->lenses()->delete();
 
-            // Create new invoice items
-            foreach ($items as $item) {
-                $product = Product::find($item['item_id']);
-                if (!$product) continue;
+            $this->saveInvoiceStock($invoice, $parsedData, 'Invoice update');
 
-                // Get current WAC for cost_price
-                $costPrice = $inventoryService->getWAC($product);
-
-                $item['invoice_id'] = $invoice->id;
-                $item['user_id'] = Auth::id();
-                $item['cost_price'] = $costPrice;
-                InvoiceItem::create($item);
-
-                // Handle inventory sale
-                $inventoryService->handleSale(
-                    $product,
-                    (int) $item['quantity'],
-                    $invoice,
-                    'Invoice update #' . $invoice->invoice_number
-                );
-            }
-
-            // Create new invoice lenses
-            foreach ($lenses as $lens) {
-                $lensModel = Lens::find($lens['lens_id']);
-                if (!$lensModel) continue;
-
-                // Get current WAC for cost_price
-                $costPrice = $inventoryService->getWAC($lensModel);
-
-                $lens['invoice_id'] = $invoice->id;
-                $lens['user_id'] = Auth::id();
-                $lens['cost_price'] = $costPrice;
-                InvoiceLens::create($lens);
-
-                // Handle inventory sale for lens
-                $inventoryService->handleSale(
-                    $lensModel,
-                    (int) $lens['quantity'],
-                    $invoice,
-                    'Invoice update #' . $invoice->invoice_number
-                );
-            }
-
-            // Update invoice
             $invoice->update($data);
-
-            // Update status based on payments
+            
+            $invoice->refresh(); 
             $invoice->updateStatus();
 
             DB::commit();
@@ -504,7 +491,7 @@ class InvoiceController extends Controller
             return response()->json([
                 'status' => false,
                 'msg' => 'Failed to update invoice: ' . $e->getMessage()
-            ], 500);
+            ], $e instanceof \InvalidArgumentException ? 422 : 500);
         }
     }
 

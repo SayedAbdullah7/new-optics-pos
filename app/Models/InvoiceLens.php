@@ -17,6 +17,7 @@ class InvoiceLens extends Model
     protected $fillable = [
         'invoice_id',
         'lens_id',
+        'eye',
         'user_id',
         'name',
         'price',

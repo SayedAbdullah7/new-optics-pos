@@ -4,7 +4,7 @@
     'isEdit' => false,
 ])
 
-<form id="kt_modal_form" class="form" action="{{ $actionRoute }}" method="post" data-method="{{ $method }}">
+<form id="kt_modal_form" class="form" action="{{ $actionRoute }}" method="post" data-method="{{ $method }}" data-is-edit="{{ $isEdit ? '1' : '0' }}">
     @csrf
     @if($isEdit)
         @method('PUT')
