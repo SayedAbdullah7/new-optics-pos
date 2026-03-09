@@ -14,10 +14,10 @@
     }
 @endphp
 
-<x-form :actionRoute="$actionRoute" :method="$method" :isEdit="$isEdit">
-    <div class="row g-5">
+<x-form :actionRoute="$actionRoute" :method="$method" :isEdit="$isEdit" class="invoice-responsive-form">
+    <div class="row g-5 responsive-modal-row">
         <!-- Main Content Area -->
-        <div class="col-lg-8 col-xl-9">
+        <div class="col-12 invoice-main-column">
             <!-- Invoice Header Section -->
             <div class="card card-flush shadow-sm mb-5 radius-lg">
                 <div class="card-header bg-light-primary py-3">
@@ -446,7 +446,7 @@
         </div>
 
         <!-- Sidebar (Prescription & Totals) -->
-        <div class="col-lg-4 col-xl-3">
+        <div class="col-12 invoice-sidebar-column">
             <div class="card card-flush shadow-sm mb-5 radius-lg" style="position: sticky; top: 80px; z-index: 10;">
                 
                 <!-- Section: Client Prescription -->
@@ -647,15 +647,24 @@
             </tr>
         `;
 
-        // Lens Pair block template
         const lensPairBlockTemplate = `
             <div class="card bg-light-info border-info border border-dashed rounded-3 mb-4 lens-pair-block animate__animated animate__fadeIn">
-                <div class="card-header min-h-40px px-4 border-bottom border-info border-dashed">
-                    <div class="card-title align-items-center d-flex m-0">
+                <div class="card-header min-h-40px px-4 border-bottom border-info border-dashed d-flex flex-wrap align-items-center">
+                    <div class="card-title align-items-center d-flex m-0 py-2">
                         <i class="ki-duotone ki-glasses fs-3 text-info me-2"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
-                        <span class="fw-bold fs-6 text-gray-800">Prescription Lens Pair</span>
+                        <span class="fw-bold fs-6 text-gray-800 me-4">Prescription Lens</span>
+                        <div class="btn-group" role="group" aria-label="Eye Selection">
+                            <input type="radio" class="btn-check eye-selection-toggle" name="eye_selection_${Date.now()}" id="eye_both_${Date.now()}" value="both" autocomplete="off" checked>
+                            <label class="btn btn-sm btn-outline btn-active-primary btn-color-gray-600 px-3 py-1 fs-8" for="eye_both_${Date.now()}">Both</label>
+
+                            <input type="radio" class="btn-check eye-selection-toggle" name="eye_selection_${Date.now()}" id="eye_right_${Date.now()}" value="right" autocomplete="off">
+                            <label class="btn btn-sm btn-outline btn-active-danger btn-color-gray-600 px-3 py-1 fs-8" for="eye_right_${Date.now()}">Right Only</label>
+
+                            <input type="radio" class="btn-check eye-selection-toggle" name="eye_selection_${Date.now()}" id="eye_left_${Date.now()}" value="left" autocomplete="off">
+                            <label class="btn btn-sm btn-outline btn-active-success btn-color-gray-600 px-3 py-1 fs-8" for="eye_left_${Date.now()}">Left Only</label>
+                        </div>
                     </div>
-                    <div class="card-toolbar">
+                    <div class="card-toolbar py-2 ms-auto">
                         <button type="button" class="btn btn-icon btn-sm btn-active-light-danger remove-lens-pair-block">
                             <i class="ki-duotone ki-cross fs-2"><span class="path1"></span><span class="path2"></span></i>
                         </button>
@@ -688,7 +697,7 @@
                         </div>
                     </div>
                     <div class="row g-0 flex-column flex-md-row rounded-3 overflow-hidden border border-gray-300 bg-white" style="direction: ltr;">
-                        <div class="col-12 col-md-6 border-bottom border-md-bottom-0 border-md-end border-gray-300 p-4 position-relative">
+                        <div class="col-12 col-md-6 border-bottom border-md-bottom-0 border-md-end border-gray-300 p-4 position-relative pair-right-eye-block">
                             <div class="position-absolute top-0 start-0 w-100 h-100 bg-danger bg-opacity-5 pointer-events-none"></div>
                             <div class="position-relative z-index-1">
                                 <div class="d-flex align-items-center mb-3">
@@ -715,7 +724,7 @@
                                 <div class="pair-status-right fs-8 fw-bold mt-2 h-20px text-end"></div>
                             </div>
                         </div>
-                        <div class="col-12 col-md-6 p-4 position-relative">
+                        <div class="col-12 col-md-6 p-4 position-relative pair-left-eye-block">
                             <div class="position-absolute top-0 start-0 w-100 h-100 bg-success bg-opacity-5 pointer-events-none"></div>
                             <div class="position-relative z-index-1">
                                 <div class="d-flex align-items-center mb-3">
@@ -870,9 +879,23 @@
         }
 
         function updatePairBlockTotal($block) {
-            const pr = parseFloat($block.find('.pair-price-right').val()) || 0;
-            const pl = parseFloat($block.find('.pair-price-left').val()) || 0;
-            $block.find('.pair-total-display').text('$' + ((pr + pl)/2).toFixed(2));
+            const $rInput = $block.find('.pair-price-right');
+            const $lInput = $block.find('.pair-price-left');
+            
+            const pr = $rInput.prop('disabled') ? 0 : (parseFloat($rInput.val()) || 0);
+            const pl = $lInput.prop('disabled') ? 0 : (parseFloat($lInput.val()) || 0);
+
+            // If only one eye is selected, its price represents the total for that block
+            // If both eyes are selected, it's a standard pair, so we divide by 2 (based on your existing pair-pricing logic)
+            const activeCount = ($rInput.prop('disabled') ? 0 : 1) + ($lInput.prop('disabled') ? 0 : 1);
+            let total = 0;
+            if (activeCount === 2) {
+                total = (pr + pl) / 2;
+            } else {
+                total = pr + pl; // only one of them will have a > 0 value
+            }
+
+            $block.find('.pair-total-display').text('$' + total.toFixed(2));
             calculateTotals();
         }
 
@@ -1130,6 +1153,27 @@
             });
         }
 
+        $(document).on('change', '.eye-selection-toggle', function() {
+            const $block = $(this).closest('.lens-pair-block');
+            const selection = $(this).val();
+            
+            const $rightBlock = $block.find('.pair-right-eye-block');
+            const $leftBlock = $block.find('.pair-left-eye-block');
+
+            if (selection === 'both') {
+                $rightBlock.removeClass('opacity-50').find('input, select').prop('disabled', false);
+                $leftBlock.removeClass('opacity-50').find('input, select').prop('disabled', false);
+            } else if (selection === 'right') {
+                $rightBlock.removeClass('opacity-50').find('input, select').prop('disabled', false);
+                $leftBlock.addClass('opacity-50').find('input, select').prop('disabled', true);
+            } else if (selection === 'left') {
+                $leftBlock.removeClass('opacity-50').find('input, select').prop('disabled', false);
+                $rightBlock.addClass('opacity-50').find('input, select').prop('disabled', true);
+            }
+            
+            updatePairBlockTotal($block);
+        });
+
         $(document).on('change', '.pair-usage-toggle', function() {
             const $block = $(this).closest('.lens-pair-block');
             $block.find('.pair-type-select').val('').trigger('change.select2');
@@ -1213,26 +1257,49 @@
         function injectLensSubmissionData(e) {
             const $c = $('#lens_pair_submit_data'); $c.empty();
             let invalid = false;
+            
             $('.lens-pair-block').each(function() {
                 const bVal = $(this).find('.pair-brand-select').val(); if(!bVal) return;
-                if(!$(this).data('lens-id-right') && !$(this).data('lens-id-left')) { invalid=true; return false; }
+                
+                const rDisabled = $(this).find('.pair-price-right').prop('disabled');
+                const lDisabled = $(this).find('.pair-price-left').prop('disabled');
+                
+                const rLId = $(this).data('lens-id-right');
+                const lLId = $(this).data('lens-id-left');
+                
+                let hasValidSelection = false;
+                if (!rDisabled && rLId) hasValidSelection = true;
+                if (!lDisabled && lLId) hasValidSelection = true;
+                
+                if (!hasValidSelection) {
+                    invalid = true;
+                    return false; // Break loop
+                }
             });
-            if(invalid) { e.preventDefault(); e.stopPropagation(); Swal.fire({text:'Please ensure all Lens Pairs have matching ranges for at least one eye.',icon:'error',buttonsStyling:!1,confirmButtonText:'Ok, got it!',customClass:{confirmButton:'btn btn-primary'}}); return; }
+            
+            if(invalid) { e.preventDefault(); e.stopPropagation(); Swal.fire({text:'Please ensure all Lens Pairs have matching ranges for the selected eyes.',icon:'error',buttonsStyling:!1,confirmButtonText:'Ok, got it!',customClass:{confirmButton:'btn btn-primary'}}); return; }
 
             $('.lens-pair-block').each(function() {
                 const $b = $(this), bVal = $b.find('.pair-brand-select').val();
                 if(!bVal) return;
                 const cId = bVal;
-                const rLId = $b.data('lens-id-right'), lLId = $b.data('lens-id-left');
-                const pR = parseFloat($b.find('.pair-price-right').val())||0, pL = parseFloat($b.find('.pair-price-left').val())||0;
                 
-                if(rLId) { 
+                const $rInput = $b.find('.pair-price-right');
+                const $lInput = $b.find('.pair-price-left');
+                
+                const rDisabled = $rInput.prop('disabled');
+                const lDisabled = $lInput.prop('disabled');
+                
+                const rLId = $b.data('lens-id-right'), lLId = $b.data('lens-id-left');
+                const pR = parseFloat($rInput.val())||0, pL = parseFloat($lInput.val())||0;
+                
+                if(!rDisabled && rLId) { 
                     $c.append($('<input>').attr({type:'hidden',name:'lens_category[]',value:`${cId}&${pR}&${rLId}`})); 
                     $c.append($('<input>').attr({type:'hidden',name:'lens_quantity[]',value:'1'})); 
                     $c.append($('<input>').attr({type:'hidden',name:'lens_price[]',value:pR})); 
                     $c.append($('<input>').attr({type:'hidden',name:'lens_eye[]',value:'right'})); 
                 }
-                if(lLId) { 
+                if(!lDisabled && lLId) { 
                     $c.append($('<input>').attr({type:'hidden',name:'lens_category[]',value:`${cId}&${pL}&${lLId}`})); 
                     $c.append($('<input>').attr({type:'hidden',name:'lens_quantity[]',value:'1'})); 
                     $c.append($('<input>').attr({type:'hidden',name:'lens_price[]',value:pL})); 
@@ -1272,3 +1339,25 @@
     });
 })();
 </script>
+
+<style>
+    /* Default behavior: Stacked (1 column) */
+    .invoice-main-column, .invoice-sidebar-column {
+        width: 100%;
+    }
+
+    /* Behavior when modal is expanded: 2 columns (75% / 25%) */
+    .modal-dialog-expanded .invoice-main-column {
+        width: 75% !important;
+    }
+    
+    .modal-dialog-expanded .invoice-sidebar-column {
+        width: 25% !important;
+    }
+
+    /* Ensure row flex wraps properly */
+    .responsive-modal-row {
+        display: flex;
+        flex-wrap: wrap;
+    }
+</style>
