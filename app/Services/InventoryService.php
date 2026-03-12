@@ -11,6 +11,14 @@ use Illuminate\Support\Facades\DB;
 class InventoryService
 {
     /**
+     * Notes:
+     * WAC is the Weighted Average Cost of the stock.
+     * COGS is the Cost of Goods Sold.
+     */
+
+
+
+    /**
      * Handle a purchase transaction (add stock).
      *
      * @param Product|Lens $stockable
