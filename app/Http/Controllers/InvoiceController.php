@@ -634,6 +634,15 @@ class InvoiceController extends Controller
             $invoice->refresh();
             $invoice->updateStatus();
 
+            activity()
+                ->performedOn($invoice)
+                ->withProperties([
+                    'amount' => $amount,
+                    'account_id' => $request->account_id,
+                    'paid_at' => $request->paid_at ?? now()->toDateTimeString(),
+                ])
+                ->log('Payment added');
+
             DB::commit();
 
             return response()->json([

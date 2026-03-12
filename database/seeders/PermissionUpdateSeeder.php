@@ -36,6 +36,7 @@ class PermissionUpdateSeeder extends Seeder
             'range-powers' => ['read', 'update'],
             'multi-select-table' => ['read', 'update'],
             'system' => ['update'],
+            'activity-log' => ['read'],
         ];
 
         foreach ($modules as $module => $actions) {

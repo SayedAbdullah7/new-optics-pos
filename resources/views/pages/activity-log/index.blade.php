@@ -1,0 +1,9 @@
+<x-app-layout>
+    <x-dynamic-table
+        table-id="activity_log_table"
+        :columns="$columns"
+        :filters="$filters"
+        :create-url="null"
+        :show-checkbox="false"
+    />
+</x-app-layout>

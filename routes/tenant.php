@@ -23,6 +23,7 @@ use App\Http\Controllers\MultiSelectTableController;
 use App\Http\Controllers\RangePowerController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\ActivityLogController;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
 
@@ -120,6 +121,8 @@ Route::middleware([
 
         Route::get('/roles', [RoleController::class, 'index'])->name('roles.index')->middleware('permission:read-roles');
         Route::resource('roles', RoleController::class)->except(['index'])->middleware('permission:create-roles|update-roles|delete-roles');
+
+        Route::get('/activity-log', [ActivityLogController::class, 'index'])->name('activity-log.index')->middleware('permission:read-activity-log');
     });
 
     // Data Reset (Use with caution!)

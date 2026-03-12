@@ -5,10 +5,13 @@ namespace App\Models;
 use Astrotomic\Translatable\Contracts\Translatable as TranslatableContract;
 use Astrotomic\Translatable\Translatable;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
 
 class Category extends Model implements TranslatableContract
 {
     use Translatable;
+    use LogsActivity;
 
     /**
      * The table associated with the model.
@@ -19,6 +22,14 @@ class Category extends Model implements TranslatableContract
      * Attributes to translate.
      */
     public $translatedAttributes = ['name'];
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['*'])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
+    }
 
     /**
      * The attributes that are mass assignable.

@@ -6,11 +6,14 @@ use Astrotomic\Translatable\Contracts\Translatable as TranslatableContract;
 use Astrotomic\Translatable\Translatable;
 use Appstract\Stock\HasStock;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
 
 class Product extends Model implements TranslatableContract
 {
     use Translatable;
     use HasStock;
+    use LogsActivity;
 
     /**
      * The table associated with the model.
@@ -21,6 +24,14 @@ class Product extends Model implements TranslatableContract
      * Attributes to translate.
      */
     public $translatedAttributes = ['name', 'description'];
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logFillable()
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
+    }
 
     /**
      * The attributes that are mass assignable.

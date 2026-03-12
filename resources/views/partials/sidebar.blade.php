@@ -370,6 +370,23 @@
                     @endcan
                     <!--end:Menu item-->
 
+                    <!--begin:Menu item - Activity Log-->
+                    @can('read-activity-log')
+                    <div class="menu-item">
+                        <a class="menu-link {{ Route::is('admin.activity-log.*') ? 'active' : '' }}"
+                           href="{{ route('admin.activity-log.index') }}">
+                            <span class="menu-icon">
+                                <i class="ki-duotone ki-document fs-2">
+                                    <span class="path1"></span>
+                                    <span class="path2"></span>
+                                </i>
+                            </span>
+                            <span class="menu-title">Activity Log</span>
+                        </a>
+                    </div>
+                    @endcan
+                    <!--end:Menu item-->
+
                 </div>
                 <!--end::Menu-->
             </div>
