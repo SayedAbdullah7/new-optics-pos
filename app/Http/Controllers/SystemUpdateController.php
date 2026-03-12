@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Permission;
+use App\Models\Tenant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
@@ -11,46 +12,41 @@ use Illuminate\Support\Facades\DB;
 
 class SystemUpdateController extends Controller
 {
+    /** @var array<int, string> Messages collected when running updates across tenants */
+    protected array $updateMessages = [];
+
     /**
-     * Run system updates and migrations manually on all tenant databases.
+     * Run system updates and migrations manually on all tenant databases (stancl/tenancy).
      */
     public function update()
     {
-        $messages = [];
-        $tenantDatabases = $this->getTenantDatabaseNames();
+        $this->updateMessages = [];
 
-        foreach ($tenantDatabases as $databaseName) {
-            $this->switchToTenantDatabase($databaseName);
-            $messages[] = "--- Tenant DB: {$databaseName} ---";
-            $messages = array_merge($messages, $this->runUpdatesOnCurrentConnection($databaseName));
+        try {
+            Artisan::call('tenancy:migrate');
+            $this->updateMessages[] = 'Tenant migrations: ' . trim(Artisan::output());
+        } catch (\Throwable $e) {
+            $this->updateMessages[] = 'Tenancy migrate: ' . $e->getMessage();
+        }
+
+        Tenant::all()->runForEach(function () {
+            $tenant = tenant();
+            $dbName = $tenant->database()->getName();
+            $this->updateMessages[] = "--- Tenant: {$tenant->getTenantKey()} (DB: {$dbName}) ---";
+            $this->updateMessages = array_merge(
+                $this->updateMessages,
+                $this->runUpdatesOnCurrentConnection($dbName)
+            );
+        });
+
+        if (empty($this->updateMessages)) {
+            $this->updateMessages[] = 'No tenants found. Create tenants and domains first.';
         }
 
         return response()->json([
             'status' => true,
-            'messages' => $messages
+            'messages' => $this->updateMessages,
         ]);
-    }
-
-    /**
-     * Get list of tenant database names. If multi-tenancy is configured, returns all; otherwise current only.
-     */
-    protected function getTenantDatabaseNames(): array
-    {
-        $databases = array_values(config('tenancy.databases', []));
-        if (! empty($databases)) {
-            return $databases;
-        }
-        return [config('database.connections.mysql.database', 'laravel')];
-    }
-
-    /**
-     * Switch default mysql connection to the given tenant database.
-     */
-    protected function switchToTenantDatabase(string $databaseName): void
-    {
-        config(['database.connections.mysql.database' => $databaseName]);
-        DB::purge('mysql');
-        DB::reconnect('mysql');
     }
 
     /**
